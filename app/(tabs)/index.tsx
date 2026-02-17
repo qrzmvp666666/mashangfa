@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
+import { checkMembershipStatus, subscribeToMembershipChanges, MembershipStatus } from '../../lib/membershipService';
 
 // 公告横幅组件
 const ANNOUNCEMENTS = [
@@ -15,7 +16,7 @@ const ANNOUNCEMENTS = [
   '🔥 登录即可查看最新一期预测内容',
 ];
 
-const AnnouncementBanner: React.FC = () => {
+const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
@@ -41,8 +42,6 @@ const AnnouncementBanner: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const router = useRouter();
-
   return (
     <View style={styles.announcementContainer}>
       <View style={styles.announcementIcon}>
@@ -53,7 +52,7 @@ const AnnouncementBanner: React.FC = () => {
           {ANNOUNCEMENTS[currentIndex]}
         </Animated.Text>
       </View>
-      <TouchableOpacity onPress={() => router.push('/rules')} style={styles.rulesButton}>
+      <TouchableOpacity onPress={onShowRules} style={styles.rulesButton}>
         <Text style={styles.rulesButtonText}>查看规则</Text>
       </TouchableOpacity>
     </View>
@@ -207,9 +206,17 @@ export default function LotteryPage() {
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
   const [isAfterPredictionTime, setIsAfterPredictionTime] = useState<boolean>(false);
   const router = useRouter();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
+  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({
+    isVip: false,
+    label: '普通用户',
+    lastPurchaseTime: null,
+    expiresAt: null,
+  });
+  const [membershipLoading, setMembershipLoading] = useState(true);
+  const [rulesVisible, setRulesVisible] = useState(false);
 
   const currentSettings = LOTTERY_DATA[activeTab];
   // 当前最新的一期（数据库第一条）
@@ -237,6 +244,31 @@ export default function LotteryPage() {
     
     return () => unsubscribe();
   }, []);
+
+  // 检查会员状态
+  useEffect(() => {
+    if (!user?.id) {
+      setMembershipStatus({ isVip: false, label: '普通用户', lastPurchaseTime: null, expiresAt: null });
+      setMembershipLoading(false);
+      return;
+    }
+
+    const checkStatus = async () => {
+      const status = await checkMembershipStatus(user.id);
+      setMembershipStatus(status);
+      setMembershipLoading(false);
+    };
+
+    checkStatus();
+
+    // 订阅购买记录变动，实时更新会员状态
+    const unsubscribe = subscribeToMembershipChanges(user.id, checkStatus);
+
+    return () => unsubscribe();
+  }, [user?.id]);
+
+  // 用户是否有权查看最新预测：已登录 + 会员有效
+  const canViewPrediction = !!session && membershipStatus.isVip;
 
   // 计算两个倒计时：开奖时间和预测发布时间
   useEffect(() => {
@@ -297,12 +329,77 @@ export default function LotteryPage() {
           <Text style={styles.headerTitle}>码上发（mashangfa.com）</Text>
         </View>
         <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
-          <Ionicons name="person-circle-outline" size={28} color="#fff" />
+          <View style={styles.headerProfileContainer}>
+            {session && !membershipLoading && membershipStatus.isVip && (
+              <View style={styles.headerVipBadge}>
+                <Text style={styles.headerVipText}>VIP</Text>
+              </View>
+            )}
+            <Ionicons name="person-circle-outline" size={28} color="#fff" />
+          </View>
         </TouchableOpacity>
       </LinearGradient>
 
       {/* 公告横幅 */}
-      <AnnouncementBanner />
+      <AnnouncementBanner onShowRules={() => setRulesVisible(true)} />
+
+      {/* 规则弹窗 */}
+      <Modal
+        visible={rulesVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRulesVisible(false)}
+      >
+        <View style={styles.rulesOverlay}>
+          <View style={styles.rulesModal}>
+            <View style={styles.rulesModalHeader}>
+              <Text style={styles.rulesModalTitle}>📜 平台规则</Text>
+              <TouchableOpacity onPress={() => setRulesVisible(false)}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.rulesContent} showsVerticalScrollIndicator={false}>
+              {/* 开奖时间 */}
+              <View style={styles.rulesSection}>
+                <Text style={styles.rulesSectionTitle}>⏰ 开奖时间</Text>
+                <Text style={styles.rulesText}>• 每天 <Text style={styles.rulesHighlight}>{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : '整'}</Text> 准时开奖</Text>
+                <Text style={styles.rulesText}>• 开奖结果将在页面上方实时更新</Text>
+              </View>
+
+              {/* 预测发布时间 */}
+              <View style={styles.rulesSection}>
+                <Text style={styles.rulesSectionTitle}>🔮 预测发布</Text>
+                <Text style={styles.rulesText}>• 每天 <Text style={styles.rulesHighlight}>{PREDICTION_HOUR}点{PREDICTION_MINUTE > 0 ? `${PREDICTION_MINUTE}分` : '整'}</Text> 发布当期预测内容</Text>
+                <Text style={styles.rulesText}>• 预测内容包含天肖/地肖组合预测</Text>
+                <Text style={styles.rulesText}>• {PREDICTION_HOUR}点前预测内容显示为“????”</Text>
+              </View>
+
+              {/* 会员购买规则 */}
+              <View style={styles.rulesSection}>
+                <Text style={styles.rulesSectionTitle}>👑 会员购买规则</Text>
+                <Text style={styles.rulesText}>• 购买“一期会员卡”后可查看当期最新预测内容</Text>
+                <Text style={styles.rulesText}>• 会员有效期至当天开奖时间（<Text style={styles.rulesHighlight}>{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : '整'}</Text>）</Text>
+                <Text style={styles.rulesText}>• 开奖后会员自动失效，需重新购买</Text>
+                <Text style={styles.rulesText}>• 开奖后购买则顺延至次日开奖时间</Text>
+              </View>
+
+              {/* 查看权限说明 */}
+              <View style={styles.rulesSection}>
+                <Text style={styles.rulesSectionTitle}>🔐 查看权限</Text>
+                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>会员用户</Text>：可查看当期最新预测 + 历史记录</Text>
+                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>普通用户</Text>：可查看历史记录，最新预测需开通会员</Text>
+                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>未登录</Text>：需先登录账号</Text>
+              </View>
+
+              {/* 温馨提示 */}
+              <View style={[styles.rulesSection, styles.rulesTipSection]}>
+                <Text style={styles.rulesTipText}>💡 温馨提示：预测仅供参考，请理性对待，切勿沉迷。</Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* 顶部Tab切换 - 暂时隐藏 */}
       {false && (
@@ -396,10 +493,12 @@ export default function LotteryPage() {
 
         {/* 预测列表 */}
         <View style={styles.predictionSection}>
-          {/* 标题 */}
+          {/* 标题 + 会员标识 */}
           <View style={styles.predictionHeader}>
             <Text style={styles.predictionTitle}>精准天地中特</Text>
           </View>
+
+
           
           
           {/* 天肖地肖说明 */}
@@ -438,8 +537,8 @@ export default function LotteryPage() {
                 <View style={styles.predictionContentContainer}>
                   <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
                 </View>
-              ) : session ? (
-                // 预测时间后且已登录：展示真实内容
+              ) : canViewPrediction ? (
+                // 预测时间后 + 已登录 + 会员有效：展示真实内容
                 <View style={styles.predictionContentContainer}>
                   {currentIssue ? (
                     renderPredictionContent(currentIssue.prediction_content || '')
@@ -447,8 +546,13 @@ export default function LotteryPage() {
                     <Text style={styles.predictionContentText}>{tiandiLoading ? '加载中...' : '暂无数据'}</Text>
                   )}
                 </View>
+              ) : session ? (
+                // 已登录但非会员：提示购买
+                <TouchableOpacity onPress={() => router.push('/membership')} style={styles.loginPromptContainer}>
+                  <Text style={styles.buyPromptText}>🔒 开通会员查看</Text>
+                </TouchableOpacity>
               ) : (
-                // 预测时间后未登录：提示登录
+                // 未登录：提示登录
                 <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
                   <Text style={styles.loginPromptText}>登录查看预测</Text>
                 </TouchableOpacity>
@@ -457,8 +561,8 @@ export default function LotteryPage() {
             <View style={[styles.predictionCellView, styles.predictionResultCell]}>
               {!isAfterPredictionTime ? (
                 <Text style={[styles.pendingResultText, styles.lockedText]}>特?00</Text>
-              ) : session ? (
-                 // 已登录且时间已到
+              ) : canViewPrediction ? (
+                 // 会员且时间已到
                  currentIssue && currentIssue.result_text ? (
                    renderPredictionResult(currentIssue.result_text)
                  ) : (
@@ -537,6 +641,69 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
   },
+  // 规则弹窗样式
+  rulesOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  rulesModal: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '80%',
+    overflow: 'hidden',
+  },
+  rulesModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  rulesModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  rulesContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  rulesSection: {
+    marginBottom: 18,
+  },
+  rulesSectionTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  rulesText: {
+    fontSize: 14,
+    color: '#555',
+    lineHeight: 24,
+    paddingLeft: 4,
+  },
+  rulesHighlight: {
+    color: '#ff6600',
+    fontWeight: 'bold',
+  },
+  rulesTipSection: {
+    backgroundColor: '#fff8e1',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  rulesTipText: {
+    fontSize: 13,
+    color: '#e65100',
+    lineHeight: 20,
+  },
   // 顶部标题横幅
   headerBanner: {
     flexDirection: 'row',
@@ -558,6 +725,22 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     padding: 4,
+  },
+  headerProfileContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  headerVipBadge: {
+    backgroundColor: '#ff8c00',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  headerVipText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -959,6 +1142,54 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  buyPromptText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  membershipBadgeContainer: {
+    alignItems: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 16,
+  },
+  vipBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff8e1',
+    borderColor: '#ff8c00',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 4,
+  },
+  vipBadgeText: {
+    color: '#ff8c00',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  normalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ddd',
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 5,
+    borderRadius: 16,
+    gap: 4,
+  },
+  normalBadgeText: {
+    color: '#999',
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  upgradeTip: {
+    color: '#4a7cff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
   resultAnimal: {
     color: '#ff0000',
