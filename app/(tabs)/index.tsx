@@ -1,9 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+
+// 公告横幅组件
+const ANNOUNCEMENTS = [
+  '🎉 有奖竞猜活动火热进行中！',
+  '📢 中奖规则：猜中特码即可获得丰厚奖励',
+  '💰 每日15点公布预测，21:30开奖',
+  '🎯 精准天地中特，胜率88%等你来挑战',
+  '🔥 登录即可查看最新一期预测内容',
+];
+
+const AnnouncementBanner: React.FC = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // 淡出
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }).start(() => {
+        // 切换文字
+        setCurrentIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
+        // 淡入
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const router = useRouter();
+
+  return (
+    <View style={styles.announcementContainer}>
+      <View style={styles.announcementIcon}>
+        <Text style={styles.announcementIconText}>📢</Text>
+      </View>
+      <View style={styles.announcementContent}>
+        <Animated.Text style={[styles.announcementText, { opacity: fadeAnim }]}>
+          {ANNOUNCEMENTS[currentIndex]}
+        </Animated.Text>
+      </View>
+      <TouchableOpacity onPress={() => router.push('/rules')} style={styles.rulesButton}>
+        <Text style={styles.rulesButtonText}>查看规则</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 // 彩票类型
 type LotteryType = 'hongkong' | 'macau' | 'newmacau';
@@ -246,6 +300,9 @@ export default function LotteryPage() {
         </TouchableOpacity>
       </LinearGradient>
 
+      {/* 公告横幅 */}
+      <AnnouncementBanner />
+
       {/* 顶部Tab切换 - 暂时隐藏 */}
       {false && (
         <View style={styles.tabContainer}>
@@ -289,9 +346,12 @@ export default function LotteryPage() {
             <Text style={styles.countdownTime}>{drawCountdown}</Text>
           </View>
           
-          <TouchableOpacity style={styles.historyButton}>
-            <Text style={styles.historyButtonText}>开奖记录</Text>
-          </TouchableOpacity>
+          {/* 开奖记录按钮 - 暂时隐藏 */}
+          {false && (
+            <TouchableOpacity style={styles.historyButton}>
+              <Text style={styles.historyButtonText}>开奖记录</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* 开奖号码区域 */}
@@ -431,6 +491,43 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+  },
+  // 公告横幅样式
+  announcementContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ff9800',
+  },
+  announcementIcon: {
+    marginRight: 8,
+  },
+  announcementIconText: {
+    fontSize: 16,
+  },
+  announcementContent: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  announcementText: {
+    fontSize: 13,
+    color: '#ff6600',
+    fontWeight: '500',
+  },
+  rulesButton: {
+    marginLeft: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: '#ff9800',
+    borderRadius: 3,
+  },
+  rulesButtonText: {
+    fontSize: 11,
+    color: '#fff',
+    fontWeight: 'bold',
   },
   // 顶部标题横幅
   headerBanner: {
