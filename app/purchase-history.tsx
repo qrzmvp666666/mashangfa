@@ -1,180 +1,165 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, SafeAreaView, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useProtectedRoute } from '../hooks/useProtectedRoute';
-import { supabase } from '../lib/supabase';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
-import { useTranslation } from '../lib/i18n';
+import {
+  fetchPurchaseRecords,
+  subscribeToPurchaseRecords,
+  getPaymentMethodLabel,
+  getPaymentStatusInfo,
+  PurchaseRecord,
+} from '../lib/purchaseRecordService';
 
 const COLORS = {
-  background: "#000000",
-  surface: "#1c1c1e",
-  textMain: "#ffffff",
-  textMuted: "#9ca3af",
-  border: "#27272a",
-  success: "#2ebd85",
-  danger: "#f6465d",
+  background: '#f5f5f5',
+  cardBg: '#ffffff',
+  textMain: '#333333',
+  textSub: '#666666',
+  textMuted: '#999999',
+  border: '#e0e0e0',
+  primary: '#4a7cff',
 };
 
-interface PurchaseRecord {
-  id: string;
-  packageName: string;
-  orderNo: string;
-  date: string;
-  status: 'completed' | 'pending' | 'failed' | 'refunded';
-  amount: string;
-  paymentMethod: string;
-  currency: string;
-}
-
-const StatusBadge = ({ status, t }: { status: PurchaseRecord['status'], t: any }) => {
-  let color = COLORS.textMuted;
-  let text = '未知';
-
-  switch (status) {
-    case 'completed':
-      color = COLORS.success;
-      text = t('purchaseHistory.statusCompleted');
-      break;
-    case 'pending':
-      color = '#eab308';
-      text = t('purchaseHistory.statusPending');
-      break;
-    case 'failed':
-      color = COLORS.danger;
-      text = t('purchaseHistory.statusFailed');
-      break;
-    case 'refunded':
-      color = '#f97316';
-      text = t('purchaseHistory.statusRefunded');
-      break;
-  }
-
+const StatusBadge = ({ status }: { status: string }) => {
+  const { label, color } = getPaymentStatusInfo(status);
   return (
     <View style={[styles.statusBadge, { borderColor: color }]}>
-      <Text style={[styles.statusText, { color }]}>{text}</Text>
+      <Text style={[styles.statusText, { color }]}>{label}</Text>
     </View>
   );
 };
 
+const PaymentMethodIcon = ({ method }: { method: string }) => {
+  const iconName = method === 'wechat' ? 'logo-wechat' : 'wallet-outline';
+  const iconColor = method === 'wechat' ? '#07C160' : '#1677FF';
+  return <Ionicons name={iconName as any} size={16} color={iconColor} />;
+};
+
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return '--';
+  return new Date(dateStr).toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).replace(/\//g, '-');
+}
+
 export default function PurchaseHistoryPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const { t } = useTranslation();
   const [records, setRecords] = useState<PurchaseRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchPurchaseRecords();
-  }, []);
-
-  const fetchPurchaseRecords = async () => {
-    try {
-      setLoading(true);
-      
-      if (!user?.id) {
-        console.log('No user ID available');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('purchase_records')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('purchased_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching purchase records:', error);
-        return;
-      }
-
-      // 转换数据格式
-      const formattedRecords: PurchaseRecord[] = (data || []).map(record => ({
-        id: record.id,
-        packageName: record.package_name,
-        orderNo: record.order_no,
-        date: new Date(record.purchased_at).toLocaleString('zh-CN', {
-          year: 'numeric',
-          month: '2-digit',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false,
-        }).replace(/\//g, '-'),
-        status: record.status as 'completed' | 'pending' | 'failed' | 'refunded',
-        amount: `${record.amount} ${record.currency || 'USD'}`,
-        paymentMethod: record.payment_method || 'Stripe',
-        currency: record.currency || 'USD',
-      }));
-
-      setRecords(formattedRecords);
-    } catch (error) {
-      console.error('Error in fetchPurchaseRecords:', error);
-    } finally {
-      setLoading(false);
-    }
+  const loadData = async () => {
+    if (!user?.id) return;
+    const data = await fetchPurchaseRecords(user.id);
+    setRecords(data);
+    setLoading(false);
   };
+
+  useEffect(() => {
+    loadData();
+
+    if (user?.id) {
+      const unsubscribe = subscribeToPurchaseRecords(user.id, loadData);
+      return () => unsubscribe();
+    }
+  }, [user?.id]);
 
   const renderItem = ({ item }: { item: PurchaseRecord }) => (
     <View style={styles.card}>
+      {/* 卡片头部：商品名 + 状态 */}
       <View style={styles.cardHeader}>
-        <Text style={styles.packageName}>{item.packageName}</Text>
-        <StatusBadge status={item.status} t={t} />
+        <Text style={styles.productName}>{item.plan_name || item.product_name}</Text>
+        <StatusBadge status={item.payment_status} />
       </View>
 
       <View style={styles.divider} />
 
+      {/* 订单号 */}
       <View style={styles.row}>
-        <Text style={styles.label}>{t('purchaseHistory.orderNo')}</Text>
+        <Text style={styles.label}>订单号</Text>
         <Text style={styles.value} numberOfLines={1} ellipsizeMode="middle">
-          {item.orderNo}
+          {item.order_no}
         </Text>
       </View>
 
+      {/* 支付方式 */}
       <View style={styles.row}>
-        <Text style={styles.label}>{t('purchaseHistory.purchaseTime')}</Text>
-        <Text style={styles.value}>{item.date}</Text>
+        <Text style={styles.label}>支付方式</Text>
+        <View style={styles.paymentMethodRow}>
+          <PaymentMethodIcon method={item.payment_method} />
+          <Text style={[styles.value, { marginLeft: 4 }]}>{getPaymentMethodLabel(item.payment_method)}</Text>
+        </View>
       </View>
 
+      {/* 支付时间 */}
       <View style={styles.row}>
-        <Text style={styles.label}>{t('purchaseHistory.paymentMethod')}</Text>
-        <Text style={styles.value}>{item.paymentMethod}</Text>
+        <Text style={styles.label}>支付时间</Text>
+        <Text style={styles.value}>{formatDate(item.payment_time)}</Text>
       </View>
 
+      {/* 完成时间 */}
+      {item.completed_time && (
+        <View style={styles.row}>
+          <Text style={styles.label}>完成时间</Text>
+          <Text style={styles.value}>{formatDate(item.completed_time)}</Text>
+        </View>
+      )}
+
+      {/* 金额 */}
       <View style={[styles.row, { marginTop: 4 }]}>
-        <Text style={styles.label}>{t('purchaseHistory.amount')}</Text>
-        <Text style={styles.amount}>{item.amount}</Text>
+        <Text style={styles.label}>金额</Text>
+        <Text style={styles.amount}>¥{Number(item.amount).toFixed(2)}</Text>
       </View>
+
+      {/* 备注 */}
+      {item.remark ? (
+        <View style={styles.row}>
+          <Text style={styles.label}>备注</Text>
+          <Text style={[styles.value, { flex: 1 }]}>{item.remark}</Text>
+        </View>
+      ) : null}
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#6aa8ff', '#4a7cff', '#3a6cee']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('purchaseHistory.title')}</Text>
+        <Text style={styles.headerTitle}>购买记录</Text>
         <View style={{ width: 24 }} />
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.textMuted} />
+          <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
           data={records}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="receipt-outline" size={64} color={COLORS.textMuted} />
-              <Text style={styles.emptyText}>{t('purchaseHistory.noRecords')}</Text>
+              <Text style={styles.emptyText}>暂无购买记录</Text>
             </View>
           }
         />
@@ -187,20 +172,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    ...(Platform.OS === 'web' && {
-      position: 'fixed' as any,
-      width: '100%',
-      height: '100%',
-      overflow: 'hidden',
-      touchAction: 'pan-y' as any,
-    }),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 44,
+    height: 48,
   },
   backButton: {
     padding: 4,
@@ -208,16 +186,21 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textMain,
+    color: '#fff',
   },
   listContent: {
     padding: 16,
   },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.cardBg,
     borderRadius: 12,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -225,7 +208,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  packageName: {
+  productName: {
     fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.textMain,
@@ -252,25 +235,28 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: COLORS.textSub,
     flexShrink: 0,
   },
   value: {
     fontSize: 14,
     color: COLORS.textMain,
-    flex: 1,
     textAlign: 'right',
     marginLeft: 8,
   },
+  paymentMethodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   amount: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.textMain,
+    color: COLORS.primary,
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 100,
+    paddingTop: 120,
   },
   emptyText: {
     marginTop: 16,

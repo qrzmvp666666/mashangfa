@@ -336,6 +336,32 @@ export default function PersonalInfoPage() {
 
           <View style={styles.divider} />
 
+          {/* Membership Plan Row */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/membership')}
+          >
+            <Text style={styles.label}>会员套餐</Text>
+            <View style={styles.rowRight}>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Purchase History Row */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/purchase-history')}
+          >
+            <Text style={styles.label}>购买记录</Text>
+            <View style={styles.rowRight}>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
           {/* Change Password Row */}
           <TouchableOpacity
             style={styles.row}
