@@ -45,7 +45,7 @@ const AnnouncementBanner: React.FC = () => {
   return (
     <View style={styles.announcementContainer}>
       <View style={styles.announcementIcon}>
-        <Text style={styles.announcementIconText}>📢</Text>
+        <Text style={styles.announcementIconText}>🔔</Text>
       </View>
       <View style={styles.announcementContent}>
         <Animated.Text style={[styles.announcementText, { opacity: fadeAnim }]}>
@@ -429,13 +429,13 @@ export default function LotteryPage() {
           
           {/* 数据列表 */}
           {/* 048期预测（当前期） */}
-          <View style={[styles.predictionDataRow, styles.currentPeriodRow, !isAfterPredictionTime && styles.lockedPeriodRow]}>
+          <View style={[styles.predictionDataRow, styles.currentPeriodRow, !isAfterPredictionTime ? styles.lockedPeriodRow : null]}>
             <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText, styles.currentPeriodText]}>
               048期
             </Text>
             <View style={[styles.predictionCellView, styles.predictionContentCell]}>
               {!isAfterPredictionTime ? (
-                // 预测时间前：灰色展示????
+                // 预测时间前（15点前）：灰色展示????
                 <View style={styles.predictionContentContainer}>
                   <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
                 </View>
