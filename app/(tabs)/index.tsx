@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal, Image, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
 import { checkMembershipStatus, subscribeToMembershipChanges, MembershipStatus } from '../../lib/membershipService';
 
@@ -67,6 +71,12 @@ const DRAW_HOUR = parseInt(process.env.EXPO_PUBLIC_DRAW_HOUR || '21', 10);
 const DRAW_MINUTE = parseInt(process.env.EXPO_PUBLIC_DRAW_MINUTE || '30', 10);
 const PREDICTION_HOUR = parseInt(process.env.EXPO_PUBLIC_PREDICTION_HOUR || '15', 10);
 const PREDICTION_MINUTE = parseInt(process.env.EXPO_PUBLIC_PREDICTION_MINUTE || '0', 10);
+
+// 二维码资源与微信号（如需替换请修改这里）
+const CUSTOMER_SERVICE_QR = require('../../assets/images/customer-service-qr.jpg');
+const GROUP_QR = CUSTOMER_SERVICE_QR; // TODO: 替换为社群二维码
+const CUSTOMER_SERVICE_WECHAT = '客服微信号';
+const GROUP_WECHAT = '社群微信号';
 
 // 六合彩预测数据（模拟数据）- 已废弃，使用数据库数据
 // const PREDICTION_DATA = [];
@@ -212,11 +222,12 @@ export default function LotteryPage() {
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({
     isVip: false,
     label: '普通用户',
-    lastPurchaseTime: null,
     expiresAt: null,
   });
   const [membershipLoading, setMembershipLoading] = useState(true);
   const [rulesVisible, setRulesVisible] = useState(false);
+  const [quickActionsVisible, setQuickActionsVisible] = useState(false);
+  const [qrModalType, setQrModalType] = useState<'customer' | 'group' | null>(null);
 
   const currentSettings = LOTTERY_DATA[activeTab];
   // 当前最新的一期（数据库第一条）
@@ -248,7 +259,7 @@ export default function LotteryPage() {
   // 检查会员状态
   useEffect(() => {
     if (!user?.id) {
-      setMembershipStatus({ isVip: false, label: '普通用户', lastPurchaseTime: null, expiresAt: null });
+      setMembershipStatus({ isVip: false, label: '普通用户', expiresAt: null });
       setMembershipLoading(false);
       return;
     }
@@ -313,6 +324,38 @@ export default function LotteryPage() {
       router.push('/profile');
     } else {
       router.push('/login');
+    }
+  };
+
+  const saveQrImage = async (assetModule: number, label: string) => {
+    try {
+      if (Platform.OS === 'web') {
+        Alert.alert('提示', '网页端暂不支持保存图片');
+        return;
+      }
+
+      const { status } = await MediaLibrary.requestPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('提示', '需要相册权限才能保存图片');
+        return;
+      }
+
+      const asset = Asset.fromModule(assetModule);
+      await asset.downloadAsync();
+      const localUri = asset.localUri || asset.uri;
+      if (!localUri) {
+        Alert.alert('保存失败', '无法获取图片地址');
+        return;
+      }
+
+      const filename = `${label}-${Date.now()}.jpg`;
+      const dest = `${FileSystem.documentDirectory}${filename}`;
+      await FileSystem.copyAsync({ from: localUri, to: dest });
+      await MediaLibrary.createAssetAsync(dest);
+      Alert.alert('已保存到相册');
+    } catch (err) {
+      console.error('Save QR error:', err);
+      Alert.alert('保存失败', '请稍后再试');
     }
   };
 
@@ -401,6 +444,80 @@ export default function LotteryPage() {
         </View>
       </Modal>
 
+      {/* 二维码弹窗 */}
+      <Modal
+        visible={qrModalType !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setQrModalType(null)}
+      >
+        <View style={styles.qrOverlay}>
+          <TouchableOpacity
+            style={styles.qrBackdrop}
+            activeOpacity={1}
+            onPress={() => setQrModalType(null)}
+          />
+          <View style={styles.qrModal}>
+            <View style={styles.qrHeader}>
+              <Text style={styles.qrTitle}>
+                {qrModalType === 'customer' ? '联系客服' : '加入社群'}
+              </Text>
+              <TouchableOpacity onPress={() => setQrModalType(null)}>
+                <Ionicons name="close" size={22} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              activeOpacity={0.9}
+              onLongPress={() =>
+                saveQrImage(
+                  qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR,
+                  qrModalType === 'customer' ? 'customer-service' : 'wechat-group'
+                )
+              }
+            >
+              <Image
+                source={qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR}
+                style={styles.qrImage}
+              />
+            </TouchableOpacity>
+
+            <View style={styles.qrWechatRow}>
+              <Text style={styles.qrWechatLabel}>微信号：</Text>
+              <Text style={styles.qrWechatText}>
+                {qrModalType === 'customer' ? CUSTOMER_SERVICE_WECHAT : GROUP_WECHAT}
+              </Text>
+              <TouchableOpacity
+                style={styles.qrCopyButton}
+                onPress={async () => {
+                  const text = qrModalType === 'customer' ? CUSTOMER_SERVICE_WECHAT : GROUP_WECHAT;
+                  await Clipboard.setStringAsync(text);
+                  Alert.alert('已复制微信号');
+                }}
+              >
+                <Ionicons name="copy" size={14} color="#4a7cff" />
+                <Text style={styles.qrCopyText}>复制</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.qrDownloadButton}
+              onPress={() =>
+                saveQrImage(
+                  qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR,
+                  qrModalType === 'customer' ? 'customer-service' : 'wechat-group'
+                )
+              }
+            >
+              <Ionicons name="download" size={16} color="#fff" />
+              <Text style={styles.qrDownloadText}>点击下载二维码</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.qrHintText}>长按二维码也可保存</Text>
+          </View>
+        </View>
+      </Modal>
+
       {/* 顶部Tab切换 - 暂时隐藏 */}
       {false && (
         <View style={styles.tabContainer}>
@@ -480,16 +597,18 @@ export default function LotteryPage() {
           </View>
         </View>
 
-        {/* 下期开奖信息 */}
-        <View style={styles.nextDrawSection}>
-          <View style={styles.clockIcon}>
-            <Text style={styles.clockText}>🕐</Text>
+        {/* 下期开奖信息 - 暂时隐藏 */}
+        {false && (
+          <View style={styles.nextDrawSection}>
+            <View style={styles.clockIcon}>
+              <Text style={styles.clockText}>🕐</Text>
+            </View>
+            <Text style={styles.nextDrawText}>
+              下期开奖: {currentSettings.nextDate}{' '}
+              <Text style={styles.nextPeriodText}>{displayPeriod}</Text>
+            </Text>
           </View>
-          <Text style={styles.nextDrawText}>
-            下期开奖: {currentSettings.nextDate}{' '}
-            <Text style={styles.nextPeriodText}>{displayPeriod}</Text>
-          </Text>
-        </View>
+        )}
 
         {/* 预测列表 */}
         <View style={styles.predictionSection}>
@@ -595,6 +714,62 @@ export default function LotteryPage() {
           ))}
         </View>
       </ScrollView>
+
+      {/* 悬浮金刚区 */}
+      {quickActionsVisible && (
+        <TouchableOpacity
+          style={styles.quickActionsOverlay}
+          activeOpacity={1}
+          onPress={() => setQuickActionsVisible(false)}
+        >
+          <View style={styles.quickActionsPanel}>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/membership')}>
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="diamond" size={24} color="#ff8c00" />
+              </View>
+              <Text style={styles.quickActionLabel}>购买会员</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.quickActionItem} onPress={() => router.push('/purchase-history')}>
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="receipt" size={24} color="#4a7cff" />
+              </View>
+              <Text style={styles.quickActionLabel}>购买记录</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickActionItem}
+              onPress={() => {
+                setQuickActionsVisible(false);
+                setQrModalType('group');
+              }}
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="people" size={24} color="#10b981" />
+              </View>
+              <Text style={styles.quickActionLabel}>加入社群</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.quickActionItem}
+              onPress={() => {
+                setQuickActionsVisible(false);
+                setQrModalType('customer');
+              }}
+            >
+              <View style={styles.quickActionIconWrap}>
+                <Ionicons name="headset" size={24} color="#f97316" />
+              </View>
+              <Text style={styles.quickActionLabel}>联系客服</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
+
+      {/* 右下角悬浮按钮 */}
+      <TouchableOpacity
+        style={styles.floatingActionButton}
+        onPress={() => setQuickActionsVisible((prev) => !prev)}
+      >
+        <Ionicons name="apps" size={22} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -703,6 +878,156 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#e65100',
     lineHeight: 20,
+  },
+  quickActionsOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
+    paddingRight: 16,
+    paddingBottom: 90,
+  },
+  quickActionsPanel: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    width: 220,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  quickActionItem: {
+    width: '25%',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 4,
+  },
+  quickActionIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f7f7f7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  quickActionLabel: {
+    fontSize: 11,
+    color: '#333',
+    fontWeight: '500',
+  },
+  floatingActionButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#4a7cff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  qrOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  qrBackdrop: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  },
+  qrModal: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  qrHeader: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  qrTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  qrImage: {
+    width: 220,
+    height: 220,
+    borderRadius: 8,
+    backgroundColor: '#f5f5f5',
+  },
+  qrWechatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  qrWechatLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  qrWechatText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+  },
+  qrCopyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#eef4ff',
+  },
+  qrCopyText: {
+    fontSize: 12,
+    color: '#4a7cff',
+    fontWeight: '600',
+  },
+  qrDownloadButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#4a7cff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  qrDownloadText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: 'bold',
+  },
+  qrHintText: {
+    marginTop: 8,
+    fontSize: 11,
+    color: '#999',
   },
   // 顶部标题横幅
   headerBanner: {
