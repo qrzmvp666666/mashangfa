@@ -1,10 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useAuth } from '../../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 // 彩票类型
 type LotteryType = 'hongkong' | 'macau' | 'newmacau';
+
+// 从环境变量读取时间配置
+const DRAW_HOUR = parseInt(process.env.EXPO_PUBLIC_DRAW_HOUR || '21', 10);
+const DRAW_MINUTE = parseInt(process.env.EXPO_PUBLIC_DRAW_MINUTE || '30', 10);
+const PREDICTION_HOUR = parseInt(process.env.EXPO_PUBLIC_PREDICTION_HOUR || '15', 10);
+const PREDICTION_MINUTE = parseInt(process.env.EXPO_PUBLIC_PREDICTION_MINUTE || '0', 10);
 
 // 六合彩预测数据（模拟数据）
 const PREDICTION_DATA = [
@@ -125,24 +133,12 @@ const renderPredictionContent = (content: string) => {
         const isTianXiao = part.includes('天肖');
         const isDiXiao = part.includes('地肖');
         
-        if (isTianXiao) {
+        if (isTianXiao || isDiXiao) {
           return (
             <Text key={index}>
-              <Text style={styles.tianXiaoHighlight}>【天肖】</Text>
-              {part.replace('天肖', '') && (
-                <Text style={styles.predictionAnimalText}>{part.replace('天肖', '')}</Text>
-              )}
-              {index < parts.length - 1 && <Text style={styles.plusText}>+</Text>}
-            </Text>
-          );
-        }
-        
-        if (isDiXiao) {
-          return (
-            <Text key={index}>
-              <Text style={styles.diXiaoHighlight}>【地肖】</Text>
-              {part.replace('地肖', '') && (
-                <Text style={styles.predictionAnimalText}>{part.replace('地肖', '')}</Text>
+              <Text style={styles.xiaoHighlight}>【{isTianXiao ? '天肖' : '地肖'}】</Text>
+              {part.replace(/天肖|地肖/, '') && (
+                <Text style={styles.predictionAnimalText}>{part.replace(/天肖|地肖/, '')}</Text>
               )}
               {index < parts.length - 1 && <Text style={styles.plusText}>+</Text>}
             </Text>
@@ -168,73 +164,130 @@ const renderPredictionResult = (result: string) => {
   const [, animal, number] = match;
   
   return (
-    <Text style={styles.predictionResultText}>
-      特<Text style={styles.resultAnimal}>{animal}</Text>
-      <Text style={styles.resultNumber}>{number}</Text>
-    </Text>
+    <View style={styles.resultContainer}>
+      <Text style={styles.predictionResultText}>
+        特<Text style={styles.resultAnimal}>{animal}</Text>
+        <Text style={styles.resultNumber}>{number}</Text>
+      </Text>
+      <Text style={styles.hitBadge}>中！</Text>
+    </View>
   );
 };
 
 export default function LotteryPage() {
   const [activeTab, setActiveTab] = useState<LotteryType>('macau');
+  const [drawCountdown, setDrawCountdown] = useState<string>('');
+  const [predictionCountdown, setPredictionCountdown] = useState<string>('');
+  const [isAfterPredictionTime, setIsAfterPredictionTime] = useState<boolean>(false);
   const currentData = LOTTERY_DATA[activeTab];
   const router = useRouter();
+  const { session } = useAuth();
+
+  // 计算两个倒计时：开奖时间和预测发布时间
+  useEffect(() => {
+    const calculateCountdowns = () => {
+      const now = new Date();
+      
+      // 1. 计算距离开奖时间（21:30）的倒计时
+      const drawTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DRAW_HOUR, DRAW_MINUTE, 0);
+      if (now > drawTarget) {
+        drawTarget.setDate(drawTarget.getDate() + 1);
+      }
+      const drawDiff = drawTarget.getTime() - now.getTime();
+      const drawHours = Math.floor(drawDiff / (1000 * 60 * 60));
+      const drawMinutes = Math.floor((drawDiff % (1000 * 60 * 60)) / (1000 * 60));
+      const drawSeconds = Math.floor((drawDiff % (1000 * 60)) / 1000);
+      setDrawCountdown(`${drawHours.toString().padStart(2, '0')}:${drawMinutes.toString().padStart(2, '0')}:${drawSeconds.toString().padStart(2, '0')}`);
+      
+      // 2. 计算距离预测发布时间（15:00）的倒计时
+      const predictionTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), PREDICTION_HOUR, PREDICTION_MINUTE, 0);
+      
+      // 判断是否已经超过预测发布时间
+      setIsAfterPredictionTime(now >= predictionTarget);
+      
+      if (now > predictionTarget) {
+        predictionTarget.setDate(predictionTarget.getDate() + 1);
+      }
+      const predictionDiff = predictionTarget.getTime() - now.getTime();
+      const predictionHours = Math.floor(predictionDiff / (1000 * 60 * 60));
+      const predictionMinutes = Math.floor((predictionDiff % (1000 * 60 * 60)) / (1000 * 60));
+      const predictionSeconds = Math.floor((predictionDiff % (1000 * 60)) / 1000);
+      setPredictionCountdown(`${predictionHours.toString().padStart(2, '0')}:${predictionMinutes.toString().padStart(2, '0')}:${predictionSeconds.toString().padStart(2, '0')}`);
+    };
+
+    calculateCountdowns();
+    const interval = setInterval(calculateCountdowns, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
 
   const handleProfilePress = () => {
-    router.push('/profile');
+    if (session) {
+      router.push('/profile');
+    } else {
+      router.push('/login');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       {/* 顶部标题横幅 */}
-      <View style={styles.headerBanner}>
+      <LinearGradient
+        colors={['#6aa8ff', '#4a7cff', '#3a6cee']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerBanner}
+      >
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>码上发</Text>
+          <Text style={styles.headerTitle}>码上发（mashangfa.com）</Text>
         </View>
         <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
           <Ionicons name="person-circle-outline" size={28} color="#fff" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
-      {/* 顶部Tab切换 */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'hongkong' && styles.activeTab]}
-          onPress={() => setActiveTab('hongkong')}
-        >
-          <Text style={[styles.tabText, activeTab === 'hongkong' && styles.activeTabText]}>
-            香港六合彩
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'macau' && styles.activeTab]}
-          onPress={() => setActiveTab('macau')}
-        >
-          <Text style={[styles.tabText, activeTab === 'macau' && styles.activeTabText]}>
-            澳门六合彩
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'newmacau' && styles.activeTab]}
-          onPress={() => setActiveTab('newmacau')}
-        >
-          <Text style={[styles.tabText, activeTab === 'newmacau' && styles.activeTabText]}>
-            新澳门六合彩
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* 顶部Tab切换 - 暂时隐藏 */}
+      {false && (
+        <View style={styles.tabContainer}>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'hongkong' && styles.activeTab]}
+            onPress={() => setActiveTab('hongkong')}
+          >
+            <Text style={[styles.tabText, activeTab === 'hongkong' && styles.activeTabText]}>
+              香港六合彩
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'macau' && styles.activeTab]}
+            onPress={() => setActiveTab('macau')}
+          >
+            <Text style={[styles.tabText, activeTab === 'macau' && styles.activeTabText]}>
+              澳门六合彩
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tab, activeTab === 'newmacau' && styles.activeTab]}
+            onPress={() => setActiveTab('newmacau')}
+          >
+            <Text style={[styles.tabText, activeTab === 'newmacau' && styles.activeTabText]}>
+              新澳门六合彩
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.content}>
         {/* 期号和按钮区域 */}
         <View style={styles.headerSection}>
           <View style={styles.periodRow}>
-            <Text style={styles.periodLabel}>澳门彩</Text>
+            <Text style={styles.periodLabel}>新澳门彩</Text>
             <Text style={styles.periodNumber}>{currentData.period}</Text>
           </View>
           
-          <TouchableOpacity style={styles.liveButton}>
-            <Text style={styles.liveButtonText}>📺 观看直播</Text>
-          </TouchableOpacity>
+          <View style={styles.countdownContainer}>
+            <Text style={styles.countdownLabel}>距离{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : ''}:</Text>
+            <Text style={styles.countdownTime}>{drawCountdown}</Text>
+          </View>
           
           <TouchableOpacity style={styles.historyButton}>
             <Text style={styles.historyButtonText}>开奖记录</Text>
@@ -285,18 +338,26 @@ export default function LotteryPage() {
           {/* 标题 */}
           <View style={styles.predictionHeader}>
             <Text style={styles.predictionTitle}>精准天地中特</Text>
+            <View style={styles.winRateBadge}>
+              <Text style={styles.winRateText}>胜率 88%</Text>
+            </View>
           </View>
           
           {/* 天肖地肖说明 */}
           <View style={styles.legendContainer}>
-            <Text style={styles.legendText}>
-              <Text style={styles.tianXiaoLabel}>天肖：</Text>
-              <Text style={styles.tianXiaoAnimals}>【兔马猴猪牛龙】</Text>
-            </Text>
-            <Text style={styles.legendText}>
-              <Text style={styles.diXiaoLabel}>地肖：</Text>
-              <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
-            </Text>
+            <View style={styles.legendLeft}>
+              <Text style={styles.legendText}>
+                <Text style={styles.tianXiaoLabel}>天肖：</Text>
+                <Text style={styles.tianXiaoAnimals}>【兔马猴猪牛龙】</Text>
+              </Text>
+              <Text style={styles.legendText}>
+                <Text style={styles.diXiaoLabel}>地肖：</Text>
+                <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
+              </Text>
+            </View>
+            <View style={styles.legendRight}>
+              <Text style={styles.legendNotice}>每天{PREDICTION_HOUR}点告知{'\n'}距离{PREDICTION_HOUR}点:{predictionCountdown}</Text>
+            </View>
           </View>
           
           {/* 表头 */}
@@ -307,6 +368,40 @@ export default function LotteryPage() {
           </View>
           
           {/* 数据列表 */}
+          {/* 048期预测（当前期） */}
+          <View style={[styles.predictionDataRow, styles.currentPeriodRow, !isAfterPredictionTime && styles.lockedPeriodRow]}>
+            <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText, styles.currentPeriodText]}>
+              048期
+            </Text>
+            <View style={[styles.predictionCellView, styles.predictionContentCell]}>
+              {!isAfterPredictionTime ? (
+                // 预测时间前：灰色展示????
+                <View style={styles.predictionContentContainer}>
+                  <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
+                </View>
+              ) : session ? (
+                // 预测时间后且已登录：展示真实内容
+                <View style={styles.predictionContentContainer}>
+                  <Text style={styles.predictionContentText}>天肖+狗鸡</Text>
+                </View>
+              ) : (
+                // 预测时间后未登录：提示登录
+                <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
+                  <Text style={styles.loginPromptText}>登录查看预测</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <View style={[styles.predictionCellView, styles.predictionResultCell]}>
+              {!isAfterPredictionTime ? (
+                <Text style={[styles.pendingResultText, styles.lockedText]}>特?00</Text>
+              ) : session ? (
+                <Text style={styles.pendingResultText}>特?00</Text>
+              ) : (
+                <Text style={styles.pendingResultText}>--</Text>
+              )}
+            </View>
+          </View>
+          
           {PREDICTION_DATA.map((item, index) => (
             <View 
               key={item.period} 
@@ -351,9 +446,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#fff',
+    fontFamily: 'KaiTi',
   },
   headerRight: {
     padding: 4,
@@ -393,7 +489,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: 5,
   },
   periodRow: {
     flexDirection: 'row',
@@ -409,18 +505,50 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     marginLeft: 5,
   },
+  countdownContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+    marginHorizontal: 10,
+  },
+  countdownLabel: {
+    fontSize: 12,
+    color: '#ff6600',
+    marginRight: 5,
+  },
+  countdownTime: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#ff4444',
+    fontFamily: 'monospace',
+  },
   liveButton: {
-    backgroundColor: '#4a7cff',
+    backgroundColor: '#ff4444',
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 5,
     flexDirection: 'row',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#ff6600',
+    shadowColor: '#ff0000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   liveButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: 'bold',
+    textShadowColor: '#ff6600',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 5,
   },
   historyButton: {
     backgroundColor: '#f0f0f0',
@@ -434,8 +562,8 @@ const styles = StyleSheet.create({
   },
   numbersSection: {
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 10,
+    marginBottom: 5,
   },
   numbersRow: {
     flexDirection: 'row',
@@ -528,27 +656,83 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
   predictionHeader: {
     backgroundColor: '#4a7cff',
     paddingVertical: 12,
     alignItems: 'center',
+    position: 'relative',
   },
   predictionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#ffff00',
   },
+  winRateBadge: {
+    position: 'absolute',
+    right: 10,
+    top: 8,
+    backgroundColor: '#ff4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#ff6600',
+    transform: [{ rotate: '15deg' }],
+    shadowColor: '#ff0000',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  winRateText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+    textShadowColor: '#ff6600',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+  },
   legendContainer: {
     backgroundColor: '#fff',
-    paddingVertical: 10,
+    paddingVertical: 12,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  legendLeft: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  legendRight: {
+    paddingLeft: 10,
+  },
+  legendNotice: {
+    fontSize: 12,
+    color: '#ff6600',
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+    textAlign: 'center',
+  },
+  legendNoticeSub: {
+    fontSize: 10,
+    color: '#ff4444',
+    marginTop: 4,
+    textAlign: 'center',
   },
   legendText: {
-    fontSize: 13,
+    fontSize: 15,
     marginVertical: 2,
+    textAlign: 'center',
   },
   tianXiaoLabel: {
     color: '#ff00ff',
@@ -599,6 +783,7 @@ const styles = StyleSheet.create({
   predictionCellView: {
     justifyContent: 'center',
     alignItems: 'center',
+    flexDirection: 'row',
   },
   predictionPeriodCell: {
     width: '20%',
@@ -618,16 +803,15 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     alignItems: 'center',
+    width: '100%',
   },
-  tianXiaoHighlight: {
+  predictionContentText: {
+    fontSize: 14,
+    color: '#333',
+  },
+  xiaoHighlight: {
     backgroundColor: '#ffff00',
     color: '#ff0000',
-    fontWeight: 'bold',
-    paddingHorizontal: 2,
-  },
-  diXiaoHighlight: {
-    backgroundColor: '#ffff00',
-    color: '#cc9900',
     fontWeight: 'bold',
     paddingHorizontal: 2,
   },
@@ -639,6 +823,38 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '500',
   },
+  currentPeriodRow: {
+    backgroundColor: '#e3f2fd',
+    borderLeftWidth: 3,
+    borderLeftColor: '#2196f3',
+  },
+  lockedPeriodRow: {
+    backgroundColor: '#f5f5f5',
+    borderLeftColor: '#999',
+  },
+  currentPeriodText: {
+    color: '#2196f3',
+    fontWeight: 'bold',
+  },
+  lockedText: {
+    color: '#bbb',
+  },
+  pendingResultText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#999',
+  },
+  loginPromptContainer: {
+    backgroundColor: '#ff9800',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+  },
+  loginPromptText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   resultAnimal: {
     color: '#ff0000',
     fontWeight: 'bold',
@@ -648,5 +864,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     backgroundColor: '#ffff00',
     paddingHorizontal: 2,
+  },
+  resultContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hitBadge: {
+    backgroundColor: '#ff0000',
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 3,
+    marginLeft: 4,
   },
 });
