@@ -329,7 +329,11 @@ export default function VipPurchasePage() {
 
     try {
       // 执行兑换
-      await redeemCode(user.id, redemptionCode);
+      const result = await redeemCode(redemptionCode);
+
+      if (!result.success) {
+        throw new Error(result.error || '兑换失败');
+      }
 
       // 刷新用户信息
       await refreshProfile();

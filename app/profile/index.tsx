@@ -47,7 +47,8 @@ export default function PersonalInfoPage() {
   // 用户ID（UUID前8位）
   const userId = user?.id ? user.id.substring(0, 8).toUpperCase() : 'UNKNOWN';
   const email = user?.email || '';
-  const vipActive = isVipActive(profile?.vip_expires_at || null);
+  const membershipExpiresAt = profile?.membership_expires_at || null;
+  const vipActive = isVipActive(membershipExpiresAt);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [cropperVisible, setCropperVisible] = useState(false);
@@ -343,6 +344,13 @@ export default function PersonalInfoPage() {
           >
             <Text style={styles.label}>会员套餐</Text>
             <View style={styles.rowRight}>
+              {membershipExpiresAt ? (
+                <Text style={[styles.valueText, { color: vipActive ? '#34c759' : COLORS.textSubDark, marginRight: 4 }]}>
+                  {vipActive ? `${new Date(membershipExpiresAt).toLocaleDateString('zh-CN')} 到期` : '已过期'}
+                </Text>
+              ) : (
+                <Text style={[styles.valueText, { color: COLORS.textSubDark, marginRight: 4 }]}>未开通</Text>
+              )}
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
             </View>
           </TouchableOpacity>
@@ -355,6 +363,19 @@ export default function PersonalInfoPage() {
             onPress={() => router.push('/purchase-history')}
           >
             <Text style={styles.label}>购买记录</Text>
+            <View style={styles.rowRight}>
+              <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Redemption History Row */}
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => router.push('/profile/redemption-history')}
+          >
+            <Text style={styles.label}>兑换记录</Text>
             <View style={styles.rowRight}>
               <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
             </View>

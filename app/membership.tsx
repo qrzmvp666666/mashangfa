@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, ActivityIndicator, TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
 import { fetchMembershipPlans, MembershipPlan } from '../lib/membershipPlanService';
+import { redeemCode } from '../lib/redemptionService';
+import Toast from '../components/Toast';
 
 const COLORS = {
   background: '#f5f5f5',
@@ -23,6 +25,47 @@ export default function MembershipPage() {
   const { session } = useAuth();
   const [plans, setPlans] = useState<MembershipPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [redeemInput, setRedeemInput] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error'>('success');
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
+
+  const handleRedeem = async () => {
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+    const code = redeemInput.trim();
+    if (!code) {
+      showToast('请输入兑换码', 'error');
+      return;
+    }
+    setRedeeming(true);
+    try {
+      const result = await redeemCode(code);
+      if (result.success) {
+        setRedeemInput('');
+        showToast(`兑换成功！已开通${result.plan_name}，有效期${result.duration_days}天`, 'success');
+        // 1.5秒后自动返回首页
+        setTimeout(() => {
+          router.replace('/(tabs)');
+        }, 1500);
+      } else {
+        showToast(result.error || '兑换失败', 'error');
+      }
+    } catch (err: any) {
+      showToast(err.message || '网络异常', 'error');
+    } finally {
+      setRedeeming(false);
+    }
+  };
 
   useEffect(() => {
     const loadPlans = async () => {
@@ -58,7 +101,7 @@ export default function MembershipPage() {
         <View style={{ width: 24 }} />
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {/* 会员说明横幅 */}
         <LinearGradient
           colors={['#FFE082', '#FFB800']}
@@ -134,6 +177,35 @@ export default function MembershipPage() {
           ))
         )}
 
+        {/* 兑换码输入 */}
+        <View style={styles.redeemContainer}>
+          <Text style={styles.redeemTitle}>兑换码兑换</Text>
+          <Text style={styles.redeemSubtitle}>输入兑换码即可开通会员</Text>
+          <View style={styles.redeemInputRow}>
+            <TextInput
+              style={styles.redeemInput}
+              placeholder="请输入兑换码"
+              placeholderTextColor={COLORS.textMuted}
+              value={redeemInput}
+              onChangeText={setRedeemInput}
+              autoCapitalize="characters"
+              editable={!redeeming}
+            />
+            <TouchableOpacity
+              style={[styles.redeemButton, (!redeemInput.trim() || redeeming) && styles.redeemButtonDisabled]}
+              onPress={handleRedeem}
+              disabled={!redeemInput.trim() || redeeming}
+              activeOpacity={0.8}
+            >
+              {redeeming ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.redeemButtonText}>兑换</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* 说明事项 */}
         <View style={styles.noticeContainer}>
           <Text style={styles.noticeTitle}>购买须知</Text>
@@ -144,6 +216,13 @@ export default function MembershipPage() {
           <Text style={styles.noticeItem}>• 如有疑问请联系客服</Text>
         </View>
       </ScrollView>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -292,6 +371,55 @@ const styles = StyleSheet.create({
   purchaseButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: '#fff',
+  },
+  redeemContainer: {
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 16,
+  },
+  redeemTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.textMain,
+    marginBottom: 4,
+  },
+  redeemSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 16,
+  },
+  redeemInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  redeemInput: {
+    flex: 1,
+    height: 44,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    fontSize: 15,
+    color: COLORS.textMain,
+    backgroundColor: '#fafafa',
+  },
+  redeemButton: {
+    height: 44,
+    paddingHorizontal: 24,
+    borderRadius: 10,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  redeemButtonDisabled: {
+    opacity: 0.5,
+  },
+  redeemButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#fff',
   },
   noticeContainer: {

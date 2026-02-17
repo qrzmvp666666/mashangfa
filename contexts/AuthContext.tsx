@@ -15,6 +15,7 @@ export type UserProfile = {
   is_verified: boolean;
   vip_status: string;
   vip_expires_at: string | null;
+  membership_expires_at: string | null;
   invite_code: string | null;
   subscription_count: number;
   following_count: number;
@@ -88,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('auth_user_id', userId)
         .single();
 
       if (error) {

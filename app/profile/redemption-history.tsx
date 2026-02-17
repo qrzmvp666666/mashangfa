@@ -2,25 +2,27 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, FlatList, ActivityIndicator, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
-import { getUserRedemptionRecords, getRedemptionTypeName } from '../../lib/redemptionService';
-import { RedemptionRecord as RedemptionRecordType } from '../../types';
+import { getUserRedemptionRecords, RedemptionRecord } from '../../lib/redemptionService';
 
 const COLORS = {
-  background: "#000000",
-  surface: "#1c1c1e",
-  textMain: "#ffffff",
-  textMuted: "#9ca3af",
-  border: "#27272a",
-  primary: "#ffffff",
+  background: "#f5f5f5",
+  cardBg: "#ffffff",
+  textMain: "#333333",
+  textSub: "#666666",
+  textMuted: "#999999",
+  border: "#e0e0e0",
+  primary: "#4a7cff",
+  success: "#34c759",
 };
 
 export default function RedemptionHistoryPage() {
-  useProtectedRoute(); // 保护路由
+  useProtectedRoute();
   const router = useRouter();
   const { user } = useAuth();
-  const [records, setRecords] = useState<RedemptionRecordType[]>([]);
+  const [records, setRecords] = useState<RedemptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -32,7 +34,7 @@ export default function RedemptionHistoryPage() {
     
     setLoading(true);
     try {
-      const data = await getUserRedemptionRecords(user.id);
+      const data = await getUserRedemptionRecords();
       setRecords(data);
     } catch (error) {
       console.error('Load redemption records error:', error);
@@ -48,33 +50,55 @@ export default function RedemptionHistoryPage() {
     const day = String(date.getDate()).padStart(2, '0');
     const hours = String(date.getHours()).padStart(2, '0');
     const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
-  const renderItem = ({ item }: { item: RedemptionRecordType }) => (
+  const renderItem = ({ item }: { item: RedemptionRecord }) => (
     <View style={styles.itemContainer}>
       <View style={styles.itemHeader}>
-        <Text style={styles.itemName}>{getRedemptionTypeName(item.code_type)}</Text>
-        <Text style={styles.statusText}>兑换成功</Text>
+        <Text style={styles.itemName}>{item.plan_name || '会员套餐'}</Text>
+        <View style={styles.statusBadge}>
+          <Text style={styles.statusText}>已兑换</Text>
+        </View>
       </View>
       <View style={styles.itemDetails}>
-        <Text style={styles.codeText}>兑换码: {item.code}</Text>
-        <Text style={styles.durationText}>时长: {item.duration_days}天</Text>
-        <Text style={styles.dateText}>{formatDate(item.redeemed_at)}</Text>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>兑换码</Text>
+          <Text style={styles.detailValue}>{item.code}</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>时长</Text>
+          <Text style={styles.detailValue}>{item.duration_days}天</Text>
+        </View>
+        <View style={styles.detailRow}>
+          <Text style={styles.detailLabel}>兑换时间</Text>
+          <Text style={styles.detailValue}>{formatDate(item.redeemed_at)}</Text>
+        </View>
+        {item.new_expires_at && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>到期时间</Text>
+            <Text style={styles.detailValue}>{formatDate(item.new_expires_at)}</Text>
+          </View>
+        )}
       </View>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
+      {/* Header */}
+      <LinearGradient
+        colors={['#6aa8ff', '#4a7cff', '#3a6cee']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.header}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+          <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>兑换记录</Text>
         <View style={{ width: 24 }} />
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -102,22 +126,13 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    ...(Platform.OS === 'web' && {
-      position: 'fixed' as any,
-      width: '100%',
-      height: '100%',
-      overflow: 'hidden',
-      touchAction: 'pan-y' as any,
-    }),
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 44,
-    borderBottomWidth: 0.5,
-    borderBottomColor: COLORS.border,
+    height: 48,
   },
   iconButton: {
     padding: 4,
@@ -125,46 +140,59 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: COLORS.textMain,
+    color: '#fff',
   },
   listContent: {
     padding: 16,
   },
   itemContainer: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: COLORS.cardBg,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   itemHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   itemName: {
     fontSize: 16,
     fontWeight: '600',
     color: COLORS.textMain,
   },
+  statusBadge: {
+    backgroundColor: '#e8f5e9',
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+  },
   statusText: {
-    fontSize: 14,
-    color: COLORS.primary,
+    fontSize: 12,
+    color: COLORS.success,
+    fontWeight: '500',
   },
   itemDetails: {
-    gap: 4,
+    gap: 8,
   },
-  codeText: {
-    fontSize: 14,
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 13,
     color: COLORS.textMuted,
   },
-  durationText: {
-    fontSize: 14,
-    color: COLORS.textMuted,
-  },
-  dateText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
+  detailValue: {
+    fontSize: 13,
+    color: COLORS.textSub,
   },
   loadingContainer: {
     flex: 1,
@@ -172,7 +200,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyContainer: {
-    padding: 40,
+    padding: 60,
     alignItems: 'center',
   },
   emptyText: {

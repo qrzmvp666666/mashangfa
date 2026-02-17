@@ -10,6 +10,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
 import { checkMembershipStatus, subscribeToMembershipChanges, MembershipStatus } from '../../lib/membershipService';
+import { getPlatformConfig } from '../../lib/platformConfigService';
 
 // 公告横幅组件
 const ANNOUNCEMENTS = [
@@ -66,11 +67,11 @@ const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules
 // 彩票类型
 type LotteryType = 'hongkong' | 'macau' | 'newmacau';
 
-// 从环境变量读取时间配置
-const DRAW_HOUR = parseInt(process.env.EXPO_PUBLIC_DRAW_HOUR || '21', 10);
-const DRAW_MINUTE = parseInt(process.env.EXPO_PUBLIC_DRAW_MINUTE || '30', 10);
-const PREDICTION_HOUR = parseInt(process.env.EXPO_PUBLIC_PREDICTION_HOUR || '15', 10);
-const PREDICTION_MINUTE = parseInt(process.env.EXPO_PUBLIC_PREDICTION_MINUTE || '0', 10);
+// 时间配置默认值（启动后从数据库 platform_config 表加载）
+const DEFAULT_DRAW_HOUR = 21;
+const DEFAULT_DRAW_MINUTE = 35;
+const DEFAULT_PREDICTION_HOUR = 15;
+const DEFAULT_PREDICTION_MINUTE = 0;
 
 // 二维码资源与微信号（如需替换请修改这里）
 const CUSTOMER_SERVICE_QR = require('../../assets/images/customer-service-qr.jpg');
@@ -219,6 +220,13 @@ export default function LotteryPage() {
   const { session, user } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
+
+  // 时间配置（从数据库加载，默认值作为 fallback）
+  const [DRAW_HOUR, setDrawHour] = useState(DEFAULT_DRAW_HOUR);
+  const [DRAW_MINUTE, setDrawMinute] = useState(DEFAULT_DRAW_MINUTE);
+  const [PREDICTION_HOUR, setPredictionHour] = useState(DEFAULT_PREDICTION_HOUR);
+  const [PREDICTION_MINUTE, setPredictionMinute] = useState(DEFAULT_PREDICTION_MINUTE);
+
   const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({
     isVip: false,
     label: '普通用户',
@@ -281,6 +289,16 @@ export default function LotteryPage() {
   // 用户是否有权查看最新预测：已登录 + 会员有效
   const canViewPrediction = !!session && membershipStatus.isVip;
 
+  // 启动时从数据库加载时间配置
+  useEffect(() => {
+    getPlatformConfig().then(cfg => {
+      setDrawHour(cfg.drawHour);
+      setDrawMinute(cfg.drawMinute);
+      setPredictionHour(cfg.predictionHour);
+      setPredictionMinute(cfg.predictionMinute);
+    });
+  }, []);
+
   // 计算两个倒计时：开奖时间和预测发布时间
   useEffect(() => {
     const calculateCountdowns = () => {
@@ -317,7 +335,7 @@ export default function LotteryPage() {
     const interval = setInterval(calculateCountdowns, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [DRAW_HOUR, DRAW_MINUTE, PREDICTION_HOUR, PREDICTION_MINUTE]);
 
   const handleProfilePress = () => {
     if (session) {
@@ -668,7 +686,7 @@ export default function LotteryPage() {
               ) : session ? (
                 // 已登录但非会员：提示购买
                 <TouchableOpacity onPress={() => router.push('/membership')} style={styles.loginPromptContainer}>
-                  <Text style={styles.buyPromptText}>🔒 开通会员查看</Text>
+                  <Text style={styles.buyPromptText}>🔒 开通会员/输入兑换码查看</Text>
                 </TouchableOpacity>
               ) : (
                 // 未登录：提示登录

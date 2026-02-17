@@ -35,7 +35,7 @@ const MyPage: React.FC = () => {
   const accountId = profile?.account_id || (user?.id ? user.id.substring(0, 8).toUpperCase() : 'UNKNOWN');
   const avatarUri = profile?.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaf9dVjkyC17LtClctTc-4sEEVvnJDQ0sqSp-elCOM8ljGaMwkhTiacOULcPPbYtSTu_lFPmnNtKsVxiOA5eHNZkJE8KHzJP-Ltx4rAvebxj5DVRDSPgWop3DQj8PuIxIIGVG_9IjKOT49af1xYWNvQQvVOeMdNj3kbhN4shXLBHo1Imm3YXyaQ_Bf8Gav9EMWI697UBzvaFwIV24Dxnf9tVPbk9jCB7kc-S_KzV8Gm3EW2a9jUrIkf3nvAt1kgTa8y1UdRtKUfg";
   const isVerified = profile?.is_verified || false;
-  const vipActive = isVipActive(profile?.vip_expires_at || null);
+  const vipActive = isVipActive(profile?.membership_expires_at || null);
 
 
 
@@ -149,7 +149,7 @@ const MyPage: React.FC = () => {
             )}
             {vipActive && (
               <Text style={styles.vipExpiryText}>
-                {t('myPage.expiryDate')}: {formatVipExpiresAt(profile?.vip_expires_at || null)}
+                {t('myPage.expiryDate')}: {formatVipExpiresAt(profile?.membership_expires_at || null)}
               </Text>
             )}
           </View>
