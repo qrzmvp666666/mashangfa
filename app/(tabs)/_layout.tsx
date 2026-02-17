@@ -39,13 +39,7 @@ export default function TabLayout() {
   useEffect(() => {
     if (loading) return;
 
-    const currentPath = pathname || '';
-    const inMyPage = currentPath.includes('/my');
-
-    if (!session && inMyPage) {
-      // 未登录但在我的页面，重定向到登录页
-      router.replace('/login');
-    }
+    // 登录检查已移到 profile 页面
   }, [session, loading, pathname]);
 
   useEffect(() => {
@@ -116,20 +110,6 @@ export default function TabLayout() {
         />
       )}
 
-      {/* 我的页面 */}
-      <Tabs.Screen
-        name="my"
-        options={{
-          title: language === 'zh' ? '我的' : 'My',
-          tabBarIcon: ({ color, focused }) => (
-            <Ionicons
-              name={focused ? 'person' : 'person-outline'}
-              size={26}
-              color={color}
-            />
-          ),
-        }}
-      />
     </Tabs>
   );
 }

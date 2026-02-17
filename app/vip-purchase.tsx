@@ -367,7 +367,7 @@ export default function VipPurchasePage() {
             if (navigation.canGoBack()) {
               navigation.goBack();
             } else {
-              router.replace('/(tabs)/my');
+              router.replace('/profile');
             }
           }}
           style={styles.backButton}

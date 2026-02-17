@@ -94,7 +94,7 @@ export default function MembershipPage() {
         end={{ x: 1, y: 0 }}
         style={styles.header}
       >
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => router.replace('/profile')} style={styles.backButton}>
           <Ionicons name="chevron-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>会员套餐</Text>
@@ -102,22 +102,6 @@ export default function MembershipPage() {
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {/* 会员说明横幅 */}
-        <LinearGradient
-          colors={['#FFE082', '#FFB800']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.banner}
-        >
-          <View style={styles.bannerIcon}>
-            <Ionicons name="diamond" size={32} color="#fff" />
-          </View>
-          <View style={styles.bannerTextContainer}>
-            <Text style={styles.bannerTitle}>精准天地中特 · 会员专享</Text>
-            <Text style={styles.bannerSubtitle}>每日15点推送精准预测，助你先人一步</Text>
-          </View>
-        </LinearGradient>
-
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.primary} />
@@ -206,6 +190,26 @@ export default function MembershipPage() {
           </View>
         </View>
 
+        {/* 记录入口 */}
+        <View style={styles.recordButtonsRow}>
+          <TouchableOpacity
+            style={styles.recordButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/purchase-history')}
+          >
+            <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.recordButtonText}>购买记录</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.recordButton}
+            activeOpacity={0.7}
+            onPress={() => router.push('/profile/redemption-history')}
+          >
+            <Ionicons name="gift-outline" size={18} color={COLORS.primary} />
+            <Text style={styles.recordButtonText}>兑换记录</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* 说明事项 */}
         <View style={styles.noticeContainer}>
           <Text style={styles.noticeTitle}>购买须知</Text>
@@ -251,34 +255,27 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 40,
   },
-  banner: {
+  recordButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 16,
+  },
+  recordButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 20,
-  },
-  bannerIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 16,
+    backgroundColor: COLORS.cardBg,
+    borderRadius: 10,
+    paddingVertical: 12,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  bannerTextContainer: {
-    flex: 1,
-  },
-  bannerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  bannerSubtitle: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.9)',
+  recordButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: COLORS.primary,
   },
   loadingContainer: {
     paddingTop: 60,
