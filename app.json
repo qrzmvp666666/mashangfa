@@ -1,0 +1,61 @@
+{
+  "expo": {
+    "name": "将军令",
+    "slug": "jijiangling",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.qrz.jijiangling"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.qrz.jijiangling"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "display": "standalone",
+      "backgroundColor": "#ffffff",
+      "themeColor": "#ffffff",
+      "scope": "/",
+      "startUrl": "/"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-dev-client",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos",
+          "savePhotosPermission": "Allow $(PRODUCT_NAME) to save photos to your album",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      "expo-asset"
+    ],
+    "scheme": "jijiangling"
+  }
+}
