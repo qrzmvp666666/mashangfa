@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import { UserInfo, Stats } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
-import { useSettings, Language } from '../../contexts/SettingsContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { useTranslation } from '../../lib/i18n';
 import { isVipActive, formatVipExpiresAt } from '../../lib/redemptionService';
 import { getUserStats } from '../../lib/userTraderService';
@@ -94,22 +94,13 @@ const MyPage: React.FC = () => {
     favorites: profile?.favorites_count || 0,
   };
 
-  // 切换语言
-  const toggleLanguage = async () => {
-    const newLanguage: Language = language === 'zh' ? 'en' : 'zh';
-    await setLanguage(newLanguage);
-  };
-
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.myHeader}>
         <View style={{ width: 24 }} />
         <Text style={styles.myHeaderTitle}>{t('myPage.title')}</Text>
-        {/* 语言切换按钮 */}
-        <TouchableOpacity onPress={toggleLanguage} style={styles.languageButton}>
-          <Text style={styles.languageText}>{language === 'zh' ? 'EN' : '中'}</Text>
-        </TouchableOpacity>
+        <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.myScrollView}>
@@ -354,19 +345,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
   },
-  languageButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    backgroundColor: COLORS.surfaceLight,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  languageText: {
-    color: COLORS.textMain,
-    fontSize: 14,
-    fontWeight: '600',
-  },
+
   myHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',

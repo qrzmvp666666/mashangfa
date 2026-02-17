@@ -287,7 +287,7 @@ export const translations = {
 
     // 启动页
     splash: {
-      appName: '将军令',
+      appName: '码上发',
     },
 
     // 购买记录页面
@@ -899,7 +899,7 @@ export const translations = {
 
     // Add to Home Screen Modal
     addToHomeScreen: {
-      welcomeTitle: 'Welcome to 将军令',
+      welcomeTitle: 'Welcome to 码上发',
       welcomeDesc: 'Add to home screen for a better experience',
       // iOS Steps
       iosShareButton: 'Tap Share Button',

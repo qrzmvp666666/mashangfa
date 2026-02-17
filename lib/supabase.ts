@@ -3,13 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 
-// 从环境变量读取 Supabase 配置
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || 'https://qzcblykahxzktiprxhbf.supabase.co';
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6Y2JseWthaHh6a3RpcHJ4aGJmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY5MTU0MjksImV4cCI6MjA4MjQ5MTQyOX0.LSVP7CMvqOu2SBaCQjwYoxKO-B4z7Dhcvjthyorbziw';
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
-// 旧项目配置（已弃用）
-// const supabaseUrl = 'https://gbspfrjxokthzvdmibuo.supabase.co';
-// const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdic3Bmcmp4b2t0aHp2ZG1pYnVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY0OTA3NDIsImV4cCI6MjA4MjA2Njc0Mn0.k3ThDJVhf8yf0kw4dpbqWwQpfJMQkPgX5bwmU7zLghc';
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables. Please check .env file.');
+}
 
 // Web 环境下使用 localStorage
 const customStorageAdapter = Platform.OS === 'web' ? {

@@ -32,7 +32,7 @@ const JiangJunLingLogo = () => {
         }
       ]}
     >
-      <Text style={styles.chineseText}>将军令</Text>
+      <Text style={styles.chineseText}>码上发</Text>
     </Animated.View>
   );
 };
