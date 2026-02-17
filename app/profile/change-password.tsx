@@ -1,323 +1,265 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, SafeAreaView, StatusBar, Alert, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  SafeAreaView,
+  StatusBar,
+  Alert,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from '../../lib/i18n';
 
 const COLORS = {
-  backgroundDark: "#000000",
-  cardDark: "#161616",
-  cardHighlight: "#252525",
-  textMainDark: "#F0F0F0",
-  textSubDark: "#888888",
-  borderDark: "#252525",
-  accentOrange: "#F0B90B",
-  primary: "#ffffff",
+  background: "#f8f9fa",
+  card: "#ffffff",
+  textMain: "#1a1a1a",
+  textSub: "#666666",
+  textMuted: "#999999",
+  border: "#e0e0e0",
+  primary: "#4a7cff",
+  error: "#ff4d4f",
+  success: "#52c41a",
 };
 
 export default function ChangePasswordPage() {
   useProtectedRoute();
   const router = useRouter();
-  const { user, updatePassword } = useAuth();
+  const { user, updatePassword, signOut } = useAuth();
   const { t } = useTranslation();
-  const [password, setPassword] = useState("");
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmPasswordError, setConfirmPasswordError] = useState("");
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorToastMessage, setErrorToastMessage] = useState('');
 
   const email = user?.email || '';
 
-  // 实时校验新密码
-  const validateNewPassword = (value: string) => {
-    if (!value.trim()) {
-      setPasswordError(t('changePassword.passwordRequired'));
+  const validatePasswords = () => {
+    if (!newPassword.trim()) {
+      Alert.alert('提示', '请输入新密码');
       return false;
     }
-    if (value.length < 6) {
-      setPasswordError(t('changePassword.passwordMinLength'));
+    if (newPassword.length < 6) {
+      Alert.alert('提示', '密码长度至少为6个字符');
       return false;
     }
-    setPasswordError("");
-
-    if (confirmPassword && value !== confirmPassword) {
-      setConfirmPasswordError(t('changePassword.passwordMismatch'));
-    } else if (confirmPassword) {
-      setConfirmPasswordError("");
+    if (newPassword !== confirmPassword) {
+      Alert.alert('提示', '两次输入的密码不一致');
+      return false;
     }
-
     return true;
-  };
-
-  // 实时校验确认密码
-  const validateConfirmPassword = (value: string) => {
-    if (!value.trim()) {
-      setConfirmPasswordError(t('changePassword.confirmPasswordRequired'));
-      return false;
-    }
-    if (value !== password) {
-      setConfirmPasswordError(t('changePassword.passwordMismatch'));
-      return false;
-    }
-    setConfirmPasswordError("");
-    return true;
-  };
-
-  // 处理新密码输入
-  const handlePasswordChange = (value: string) => {
-    setPassword(value);
-    if (value) {
-      validateNewPassword(value);
-    } else {
-      setPasswordError("");
-    }
-  };
-
-  // 处理确认密码输入
-  const handleConfirmPasswordChange = (value: string) => {
-    setConfirmPassword(value);
-    if (value) {
-      validateConfirmPassword(value);
-    } else {
-      setConfirmPasswordError("");
-    }
-  };
-
-  // 提交时的最终校验
-  const validatePassword = () => {
-    let isValid = true;
-
-    if (!password.trim()) {
-      setPasswordError(t('changePassword.passwordRequired'));
-      isValid = false;
-    } else if (password.length < 6) {
-      setPasswordError(t('changePassword.passwordMinLength'));
-      isValid = false;
-    } else {
-      setPasswordError("");
-    }
-
-    if (!confirmPassword.trim()) {
-      setConfirmPasswordError(t('changePassword.confirmPasswordRequired'));
-      isValid = false;
-    } else if (password !== confirmPassword) {
-      setConfirmPasswordError(t('changePassword.passwordMismatch'));
-      isValid = false;
-    } else {
-      setConfirmPasswordError("");
-    }
-
-    return isValid;
   };
 
   const handleSave = async () => {
-    const isValid = validatePassword();
-
-    if (!isValid) {
+    if (!validatePasswords()) {
       return;
     }
 
     setSaving(true);
 
-    try {
-      const updatePromise = updatePassword(password);
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => {
-          reject(new Error(t('changePassword.timeoutError')));
-        }, 35000)
-      );
+    const result = await updatePassword(newPassword);
 
-      const result = await Promise.race([updatePromise, timeoutPromise]) as any;
-
-      if (result?.error) {
-        throw result.error;
-      }
-
-      setShowToast(true);
-
-      setTimeout(() => {
-        setShowToast(false);
-        router.back();
-      }, 1500);
-
-    } catch (error: any) {
-      let errorMessage = t('changePassword.saveFailed');
-      if (error?.message) {
-        errorMessage = error.message;
-      }
-
-      if (errorMessage.includes('超时') || errorMessage.includes('timeout')) {
-        errorMessage += '\n\n' + t('changePassword.timeoutReason1') + '\n' +
-          t('changePassword.timeoutReason2') + '\n' +
-          t('changePassword.timeoutReason3') + '\n' +
-          t('changePassword.timeoutReason4') + '\n\n' +
-          t('changePassword.timeoutSuggestion');
-      }
-
-      Alert.alert(t('common.error'), errorMessage);
-    } finally {
+    if (result?.error) {
       setSaving(false);
+      let errorMessage = result.error?.message || '保存失败，请重试';
+      
+      // 处理特定错误
+      if (errorMessage.includes('same_password') || 
+          errorMessage.includes('same as the old') ||
+          errorMessage.includes('different from the old') ||
+          errorMessage.includes('New password should be different')) {
+        errorMessage = '新密码不能与当前密码相同';
+      } else if (errorMessage.includes('weak_password')) {
+        errorMessage = '密码强度不够，请使用更复杂的密码';
+      }
+      
+      // 显示顶部错误提示
+      setErrorToastMessage(errorMessage);
+      setShowErrorToast(true);
+      setTimeout(() => {
+        setShowErrorToast(false);
+      }, 2000);
+      return;
     }
+
+    setSaving(false);
+    setShowToast(true);
+    setTimeout(() => {
+      setShowToast(false);
+      setTimeout(() => {
+        // 密码设置成功后退出登录并回到登录页面
+        signOut();
+        router.replace('/login');
+      }, 300);
+    }, 1500);
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundDark} />
+      <StatusBar barStyle="light-content" backgroundColor="#4a7cff" />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#6aa8ff', '#4a7cff', '#3a6cee']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerBanner}
+      >
         <TouchableOpacity
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.push('/profile');
-            }
-          }}
+          onPress={() => router.back()}
           style={styles.iconButton}
         >
-          <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('changePassword.title')}</Text>
+        <Text style={styles.headerTitle}>设置密码</Text>
         <View style={styles.headerRight} />
-      </View>
+      </LinearGradient>
 
-      <View style={styles.content}>
-        {/* Email (Read-only) */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('changePassword.emailAccount')}</Text>
-          <View style={styles.emailContainer}>
-            <Text style={styles.emailText}>{email}</Text>
-          </View>
-        </View>
-
-        {/* New Password */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('changePassword.newPassword')}</Text>
-          <View style={[styles.inputContainer, passwordError && styles.inputContainerError]}>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={handlePasswordChange}
-              placeholder={t('changePassword.enterNewPassword')}
-              placeholderTextColor="rgba(136, 136, 136, 0.5)"
-              selectionColor={COLORS.accentOrange}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-            />
-            {password.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setPassword('');
-                  setPasswordError('');
-                }}
-                style={styles.clearButton}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color={COLORS.textSubDark}
-                />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={() => setShowPassword(!showPassword)}
-              style={styles.eyeButton}
-            >
-              <Ionicons
-                name={showPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color={COLORS.textSubDark}
-              />
-            </TouchableOpacity>
-          </View>
-          {passwordError ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={14} color="#FF4444" />
-              <Text style={styles.errorText}>{passwordError}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Confirm Password */}
-        <View style={styles.fieldContainer}>
-          <Text style={styles.label}>{t('changePassword.confirmNewPassword')}</Text>
-          <View style={[styles.inputContainer, confirmPasswordError && styles.inputContainerError]}>
-            <TextInput
-              style={styles.input}
-              value={confirmPassword}
-              onChangeText={handleConfirmPasswordChange}
-              placeholder={t('changePassword.enterConfirmPassword')}
-              placeholderTextColor="rgba(136, 136, 136, 0.5)"
-              selectionColor={COLORS.accentOrange}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-            />
-            {confirmPassword.length > 0 && (
-              <TouchableOpacity
-                onPress={() => {
-                  setConfirmPassword('');
-                  setConfirmPasswordError('');
-                }}
-                style={styles.clearButton}
-              >
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color={COLORS.textSubDark}
-                />
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity
-              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              style={styles.eyeButton}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color={COLORS.textSubDark}
-              />
-            </TouchableOpacity>
-          </View>
-          {confirmPasswordError ? (
-            <View style={styles.errorContainer}>
-              <Ionicons name="alert-circle" size={14} color="#FF4444" />
-              <Text style={styles.errorText}>{confirmPasswordError}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        {/* Helper Text */}
-        <View style={styles.helperTextContainer}>
-          <Text style={styles.helperText}>{t('changePassword.helperText1')}</Text>
-          <Text style={styles.helperText}>{t('changePassword.helperText2')}</Text>
-        </View>
-
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={handleSave}
-          disabled={saving}
-          activeOpacity={0.7}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.saveButtonText}>
-            {saving ? t('changePassword.saving') : t('changePassword.save')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          {/* 新密码 */}
+          <View style={styles.card}>
+            <View style={styles.inputRow}>
+              <Text style={styles.inputLabel}>新密码</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  placeholder="请输入新密码（至少6位）"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                />
+                {newPassword.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setNewPassword('')}
+                    style={styles.clearButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={COLORS.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* 确认新密码 */}
+          <View style={styles.card}>
+            <View style={styles.inputRow}>
+              <Text style={styles.inputLabel}>确认密码</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="请再次输入新密码"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                {confirmPassword.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setConfirmPassword('')}
+                    style={styles.clearButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  style={styles.eyeButton}
+                >
+                  <Ionicons
+                    name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={COLORS.textMuted}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+
+          {/* 密码不一致提示 */}
+          {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+            <View style={styles.errorContainer}>
+              <Ionicons name="alert-circle" size={16} color={COLORS.error} />
+              <Text style={styles.errorText}>两次输入的密码不一致</Text>
+            </View>
+          )}
+
+          {/* 提示文字 */}
+          <View style={styles.hintContainer}>
+            <Text style={styles.hintText}>• 密码长度至少为6个字符</Text>
+            <Text style={styles.hintText}>• 两次输入的密码必须一致</Text>
+          </View>
+
+          {/* 保存按钮 */}
+          <TouchableOpacity
+            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+            onPress={handleSave}
+            disabled={saving}
+            activeOpacity={0.8}
+          >
+            {saving ? (
+              <ActivityIndicator color="#ffffff" />
+            ) : (
+              <Text style={styles.saveButtonText}>保存</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Error Toast */}
+      {showErrorToast && (
+        <View style={styles.toastContainer}>
+          <View style={[styles.toastContent, { backgroundColor: '#fff2f0', borderWidth: 1, borderColor: '#ffccc7' }]}>
+            <Ionicons name="close-circle" size={20} color={COLORS.error} />
+            <Text style={[styles.toastText, { color: COLORS.error }]}>{errorToastMessage}</Text>
+          </View>
+        </View>
+      )}
 
       {/* Success Toast */}
       {showToast && (
         <View style={styles.toastContainer}>
           <View style={styles.toastContent}>
-            <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
-            <Text style={styles.toastText}>{t('changePassword.saveSuccess')}</Text>
+            <Ionicons name="checkmark-circle" size={20} color={COLORS.success} />
+            <Text style={styles.toastText}>密码设置成功</Text>
           </View>
         </View>
       )}
@@ -328,7 +270,7 @@ export default function ChangePasswordPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundDark,
+    backgroundColor: COLORS.background,
     ...(Platform.OS === 'web' && {
       position: 'fixed' as any,
       width: '100%',
@@ -337,118 +279,148 @@ const styles = StyleSheet.create({
       touchAction: 'pan-y' as any,
     }),
   },
-  header: {
+  headerBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.05)',
-    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    paddingVertical: 16,
+    height: 56,
   },
   iconButton: {
     padding: 4,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.textMainDark,
+    color: '#ffffff',
   },
   headerRight: {
     width: 40,
   },
-  content: {
+  scrollView: {
     flex: 1,
+  },
+  content: {
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
   },
-  fieldContainer: {
-    marginBottom: 24,
+  card: {
+    backgroundColor: COLORS.card,
+    borderRadius: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
   },
-  label: {
-    fontSize: 14,
-    color: COLORS.textSubDark,
-    marginBottom: 8,
-  },
-  emailContainer: {
-    backgroundColor: COLORS.cardDark,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-  },
-  emailText: {
-    fontSize: 15,
-    color: COLORS.textMainDark,
-  },
-  inputContainer: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.cardDark,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.textMain,
+    minWidth: 80,
+  },
+  valueText: {
+    fontSize: 15,
+    color: COLORS.textSub,
+    flex: 1,
+    textAlign: 'right',
+  },
+  inputRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: COLORS.textMain,
+    marginBottom: 12,
+  },
+  passwordContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
     borderRadius: 12,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
+    height: 52,
   },
-  inputContainerError: {
-    borderColor: '#FF4444',
-  },
-  input: {
+  passwordInput: {
     flex: 1,
     fontSize: 15,
-    color: COLORS.textMainDark,
-    paddingVertical: 14,
+    color: COLORS.textMain,
     ...(Platform.OS === 'web' && {
       outlineStyle: 'none' as any,
     }),
   },
   clearButton: {
     padding: 4,
-    marginLeft: 4,
+    marginRight: 8,
   },
   eyeButton: {
     padding: 4,
-    marginLeft: 4,
+  },
+  hintContainer: {
+    marginTop: 8,
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  hintText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginBottom: 6,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
-    paddingHorizontal: 4,
+    backgroundColor: '#fff2f0',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 16,
   },
   errorText: {
-    fontSize: 12,
-    color: '#FF4444',
-    marginLeft: 4,
-  },
-  helperTextContainer: {
-    marginTop: 8,
-    marginBottom: 32,
-  },
-  helperText: {
-    fontSize: 12,
-    color: COLORS.textSubDark,
-    marginBottom: 4,
+    fontSize: 13,
+    color: COLORS.error,
+    marginLeft: 6,
   },
   saveButton: {
-    backgroundColor: '#FFFFFF',
+    height: 52,
     borderRadius: 12,
-    paddingVertical: 14,
+    backgroundColor: '#4a7cff',
     alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#4a7cff',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   saveButtonDisabled: {
-    opacity: 0.5,
+    opacity: 0.6,
   },
   saveButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: 'bold',
+    color: '#ffffff',
   },
   toastContainer: {
     position: 'absolute',
-    top: 100,
+    top: 70,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -457,16 +429,22 @@ const styles = StyleSheet.create({
   toastContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(22, 22, 22, 0.95)',
+    backgroundColor: '#ffffff',
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(76, 175, 80, 0.3)',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   toastText: {
     fontSize: 14,
-    color: '#4CAF50',
+    color: COLORS.textMain,
     marginLeft: 8,
     fontWeight: '500',
   },

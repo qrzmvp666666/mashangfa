@@ -1,187 +1,121 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  useColorScheme,
   SafeAreaView,
   Platform,
   KeyboardAvoidingView,
   ScrollView,
-  Alert,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { MaterialIcons, Ionicons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslation } from '../lib/i18n';
 import Toast from '../components/Toast';
 
 const COLORS = {
-  primary: "#2ebd85",
+  primary: "#4a7cff",
   danger: "#f6465d",
-  background: "#000000",
-  surface: "#131313",
-  surfaceLight: "#1c1c1e",
-  textMain: "#ffffff",
-  textMuted: "#9ca3af",
-  border: "#27272a",
-  yellow: "#eab308",
-  yellowText: "#facc15",
+  background: "#ffffff",
+  surface: "#ffffff",
+  surfaceLight: "#f5f5f5",
+  textMain: "#333333",
+  textMuted: "#666666",
+  border: "#e0e0e0",
 };
 
 export default function LoginScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const { signInWithOtp, verifyOtp, signInWithPassword } = useAuth();
+  const { signInOrSignUpWithCustomAccount } = useAuth();
   const { t } = useTranslation();
-  const isDark = true;
 
-  const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
-  const [isPasswordLogin, setIsPasswordLogin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [countdown, setCountdown] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('error');
 
-  useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown((prev) => prev - 1);
-      }, 1000);
-    }
-    return () => clearInterval(timer);
-  }, [countdown]);
-
-  const handleSendCode = async () => {
-    if (!email) {
-      setToastMessage(t('login.pleaseEnterEmail'));
-      setToastType('warning');
-      setShowToast(true);
-      return;
-    }
-    setLoading(true);
-    const { error } = await signInWithOtp(email);
-    setLoading(false);
-    if (error) {
-      setToastMessage(error.message);
-      setToastType('error');
-      setShowToast(true);
-    } else {
-      setCountdown(60);
-      setToastMessage(t('login.codeSent'));
-      setToastType('success');
-      setShowToast(true);
-    }
-  };
-
   const handleLogin = async () => {
-    if (!email) {
-      setToastMessage(t('login.pleaseEnterEmail'));
+    if (!account) {
+      setToastMessage('请输入账号');
       setToastType('warning');
       setShowToast(true);
       return;
     }
-    setLoading(true);
-    let result;
-    if (isPasswordLogin) {
-      if (!password) {
-        setToastMessage(t('login.pleaseEnterPassword'));
-        setToastType('warning');
-        setShowToast(true);
-        setLoading(false);
-        return;
-      }
-      result = await signInWithPassword(email, password);
-    } else {
-      if (!code) {
-        setToastMessage(t('login.pleaseEnterCode'));
-        setToastType('warning');
-        setShowToast(true);
-        setLoading(false);
-        return;
-      }
-      result = await verifyOtp(email, code);
+    if (!password) {
+      setToastMessage('请输入密码');
+      setToastType('warning');
+      setShowToast(true);
+      return;
     }
+    if (password.length < 6) {
+      setToastMessage('密码至少需要6个字符');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+
+    setLoading(true);
+    const result = await signInOrSignUpWithCustomAccount(account, password);
     setLoading(false);
 
     if (result.error) {
-      setToastMessage(result.error.message || t('login.loginFailed'));
+      setToastMessage(result.error.message || '登录失败，请重试');
       setToastType('error');
       setShowToast(true);
     } else {
+      if (result.isNewUser) {
+        setToastMessage('注册成功，已自动登录');
+        setToastType('success');
+        setShowToast(true);
+      }
       router.replace('/(tabs)');
     }
   };
 
-  const theme = {
-    background: COLORS.background,
-    text: COLORS.textMain,
-    textSecondary: COLORS.textMuted,
-    inputBg: COLORS.surface,
-    inputBorder: COLORS.border,
-    placeholder: COLORS.textMuted,
-    mainButtonBg: COLORS.textMain,
-    mainButtonText: COLORS.background,
-    socialBg: COLORS.surface,
-    socialBorder: COLORS.border,
-    socialHover: COLORS.surfaceLight,
-  };
-
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <View style={styles.header}>
-          <Text style={[styles.headerTitle, { color: theme.text }]}>{t('login.title')}</Text>
-        </View>
-
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.titleContainer}>
-            <Text style={[styles.title, { color: theme.text }]}>{t('login.welcome')}</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            <Text style={styles.title}>{t('login.welcome')}</Text>
+            <Text style={styles.subtitle}>
               {t('login.subtitle')}
             </Text>
           </View>
 
           <View style={styles.formContainer}>
+            {/* 账号输入 */}
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: theme.text }]}>{t('login.email')}</Text>
+              <Text style={styles.label}>账号</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[
-                    styles.input,
-                    {
-                      backgroundColor: theme.inputBg,
-                      borderColor: theme.inputBorder,
-                      color: theme.text,
-                    },
-                  ]}
-                  placeholder="name@example.com"
-                  placeholderTextColor={theme.placeholder}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
+                  style={styles.input}
+                  placeholder="请输入手机号/邮箱/账号"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={account}
+                  onChangeText={setAccount}
                   autoCapitalize="none"
+                  keyboardType="default"
                 />
-                {email.length > 0 && (
+                {account.length > 0 && (
                   <TouchableOpacity
-                    onPress={() => setEmail('')}
+                    onPress={() => setAccount('')}
                     style={styles.clearButton}
                   >
                     <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
@@ -190,114 +124,57 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            {/* 密码输入 */}
             <View style={styles.inputGroup}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={[styles.label, { color: theme.text }]}>
-                  {isPasswordLogin ? t('login.password') : t('login.verificationCode')}
-                </Text>
+              <Text style={styles.label}>密码</Text>
+              <View style={styles.passwordInputContainer}>
+                <TextInput
+                  style={styles.passwordInput}
+                  placeholder="请输入密码（至少6位）"
+                  placeholderTextColor={COLORS.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                />
+                {password.length > 0 && (
+                  <TouchableOpacity
+                    onPress={() => setPassword('')}
+                    style={styles.passwordClearButton}
+                  >
+                    <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
-                  onPress={() => setIsPasswordLogin(!isPasswordLogin)}
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.passwordEyeButton}
                 >
-                  <Text style={{ fontSize: 14, color: theme.text, fontWeight: '500' }}>
-                    {isPasswordLogin ? t('login.switchToCode') : t('login.switchToPassword')}
-                  </Text>
+                  <Ionicons
+                    name={showPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={COLORS.textMuted}
+                  />
                 </TouchableOpacity>
               </View>
-              {isPasswordLogin ? (
-                <View style={[
-                  styles.inputWrapper,
-                  styles.passwordInputContainer,
-                  {
-                    backgroundColor: theme.inputBg,
-                    borderColor: theme.inputBorder,
-                  }
-                ]}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      styles.passwordInput,
-                      {
-                        color: theme.text,
-                      },
-                    ]}
-                    placeholder={t('login.enterPassword')}
-                    placeholderTextColor={theme.placeholder}
-                    value={password}
-                    onChangeText={setPassword}
-                    secureTextEntry={!showPassword}
-                    autoCapitalize="none"
-                  />
-                  {password.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setPassword('')}
-                      style={styles.passwordClearButton}
-                    >
-                      <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.passwordEyeButton}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color={COLORS.textMuted}
-                    />
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: theme.inputBg,
-                        borderColor: theme.inputBorder,
-                        color: theme.text,
-                        paddingRight: 100,
-                      },
-                    ]}
-                    placeholder={t('login.enterCode')}
-                    placeholderTextColor={theme.placeholder}
-                    value={code}
-                    onChangeText={setCode}
-                    maxLength={6}
-                    keyboardType="number-pad"
-                  />
-                  {code.length > 0 && (
-                    <TouchableOpacity
-                      onPress={() => setCode('')}
-                      style={[styles.clearButton, { right: 90 }]}
-                    >
-                      <Ionicons name="close-circle" size={20} color={COLORS.textMuted} />
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity
-                    style={[styles.getCodeButton, countdown > 0 && { opacity: 0.5 }]}
-                    onPress={handleSendCode}
-                    disabled={countdown > 0 || loading}
-                  >
-                    <Text style={styles.getCodeText}>
-                      {countdown > 0 ? `${countdown}s` : t('login.getCode')}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
             </View>
+
+            {/* 提示文字 */}
+            <Text style={styles.hintText}>
+              首次登录将自动注册账号
+            </Text>
           </View>
 
           <View style={styles.actionContainer}>
             <TouchableOpacity
-              style={[styles.mainButton, { backgroundColor: theme.mainButtonBg }]}
+              style={styles.mainButton}
               onPress={handleLogin}
               disabled={loading}
             >
               {loading ? (
-                <ActivityIndicator color={theme.mainButtonText} />
+                <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={[styles.mainButtonText, { color: theme.mainButtonText }]}>
-                  {t('login.loginOrRegister')}
+                <Text style={styles.mainButtonText}>
+                  登录 / 注册
                 </Text>
               )}
             </TouchableOpacity>
@@ -318,6 +195,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#ffffff',
     ...(Platform.OS === 'web' && {
       position: 'fixed' as any,
       width: '100%',
@@ -326,42 +204,23 @@ const styles = StyleSheet.create({
       touchAction: 'pan-y' as any,
     }),
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backButtonDark: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 32,
+    paddingTop: 60,
     paddingBottom: 20,
   },
   titleContainer: {
-    marginBottom: 32,
+    marginBottom: 40,
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
+    color: '#333333',
     marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
+    color: '#666666',
   },
   formContainer: {
     gap: 24,
@@ -372,6 +231,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '500',
+    color: '#333333',
     marginLeft: 4,
   },
   inputWrapper: {
@@ -380,11 +240,13 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 56,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    paddingHorizontal: 15,
+    borderColor: '#e0e0e0',
+    paddingHorizontal: 16,
     fontSize: 16,
-    zIndex: 1,
+    backgroundColor: '#ffffff',
+    color: '#333333',
     ...(Platform.OS === 'web' && {
       outlineStyle: 'none' as any,
     }),
@@ -393,13 +255,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 12,
     padding: 4,
-    zIndex: 2,
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: 44,
-    padding: 4,
-    zIndex: 2,
   },
   passwordInputContainer: {
     flexDirection: 'row',
@@ -407,110 +262,52 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 16,
     borderWidth: 1,
-    position: 'relative',
+    borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
+    height: 56,
   },
   passwordInput: {
     flex: 1,
-    paddingVertical: 14,
-    paddingRight: 0,
-    backgroundColor: 'transparent',
-    borderWidth: 0,
+    fontSize: 16,
+    color: '#333333',
+    ...(Platform.OS === 'web' && {
+      outlineStyle: 'none' as any,
+    }),
   },
   passwordClearButton: {
     padding: 4,
-    marginLeft: 4,
+    marginRight: 8,
   },
   passwordEyeButton: {
     padding: 4,
-    marginLeft: 4,
   },
-  getCodeButton: {
-    position: 'absolute',
-    right: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    zIndex: 10,
-  },
-  getCodeText: {
-    color: COLORS.textMain,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  switchLoginButton: {
-    alignSelf: 'flex-start',
-    marginTop: 12,
-  },
-  switchLoginText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: COLORS.textMuted,
+  hintText: {
+    fontSize: 13,
+    color: '#999999',
+    textAlign: 'center',
+    marginTop: 8,
   },
   actionContainer: {
-    marginTop: 32,
+    marginTop: 40,
   },
   mainButton: {
-    height: 48,
-    borderRadius: 8,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#4a7cff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#4a7cff',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   mainButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 32,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  socialContainer: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  socialButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 48,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  socialButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  footer: {
-    padding: 16,
-    alignItems: 'center',
-  },
-  footerText: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    textAlign: 'center',
-  },
-  linkText: {
-    color: COLORS.primary,
+    color: '#ffffff',
   },
 });

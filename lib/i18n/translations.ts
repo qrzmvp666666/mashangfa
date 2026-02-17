@@ -85,7 +85,7 @@ export const translations = {
       nickname: '昵称',
       account: '账号',
       email: '邮箱',
-      changePassword: '修改密码',
+      changePassword: '设置密码',
       qrCode: '二维码名片',
       logout: '退出登录',
       logoutConfirm: '确定要退出登录吗？',
@@ -109,9 +109,9 @@ export const translations = {
       userInfoIncomplete: '用户信息不完整',
     },
 
-    // 修改密码页面
+    // 设置密码页面
     changePassword: {
-      title: '修改密码',
+      title: '设置密码',
       emailAccount: '邮箱账号',
       newPassword: '新密码',
       confirmNewPassword: '确认新密码',
@@ -165,7 +165,7 @@ export const translations = {
 
     // 登录页面
     login: {
-      title: '登录/注册',
+      title: '码上发（mashangfa.com）',
       welcome: '欢迎回来',
       subtitle: '请输入您的邮箱以登录或创建新账户。',
       email: '邮箱',

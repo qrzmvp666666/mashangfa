@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Modal, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import ImageCropper from './_components/ImageCropper';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,14 +13,14 @@ import { isVipActive } from '../../lib/redemptionService';
 import { useTranslation } from '../../lib/i18n';
 
 const COLORS = {
-  backgroundDark: "#000000",
-  cardDark: "#161616",
-  cardHighlight: "#252525",
-  textMainDark: "#F0F0F0",
-  textSubDark: "#888888",
-  borderDark: "#252525",
+  backgroundDark: "#f5f5f5",
+  cardDark: "#ffffff",
+  cardHighlight: "#f0f0f0",
+  textMainDark: "#333333",
+  textSubDark: "#666666",
+  borderDark: "#e0e0e0",
   white: "#FFFFFF",
-  primary: "#ffffff",
+  primary: "#4a7cff",
 };
 
 export default function PersonalInfoPage() {
@@ -38,7 +39,13 @@ export default function PersonalInfoPage() {
   // Data from profile or fallback to user object
   const avatarUri = profile?.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaf9dVjkyC17LtClctTc-4sEEVvnJDQ0sqSp-elCOM8ljGaMwkhTiacOULcPPbYtSTu_lFPmnNtKsVxiOA5eHNZkJE8KHzJP-Ltx4rAvebxj5DVRDSPgWop3DQj8PuIxIIGVG_9IjKOT49af1xYWNvQQvVOeMdNj3kbhN4shXLBHo1Imm3YXyaQ_Bf8Gav9EMWI697UBzvaFwIV24Dxnf9tVPbk9jCB7kc-S_KzV8Gm3EW2a9jUrIkf3nvAt1kgTa8y1UdRtKUfg";
   const nickname = profile?.username || user?.email?.split('@')[0] || 'User';
-  const accountId = profile?.account_id || (user?.id ? user.id.substring(0, 8).toUpperCase() : 'UNKNOWN');
+  // 从 email 中提取自定义账号（去掉 @mashangfa.local 后缀）
+  const rawEmail = user?.email || '';
+  const accountName = rawEmail.endsWith('@mashangfa.local')
+    ? decodeURIComponent(rawEmail.replace('@mashangfa.local', ''))
+    : (profile?.account_id || (user?.id ? user.id.substring(0, 8).toUpperCase() : 'UNKNOWN'));
+  // 用户ID（UUID前8位）
+  const userId = user?.id ? user.id.substring(0, 8).toUpperCase() : 'UNKNOWN';
   const email = user?.email || '';
   const vipActive = isVipActive(profile?.vip_expires_at || null);
 
@@ -82,9 +89,10 @@ export default function PersonalInfoPage() {
       console.error('Logout error:', e);
     }
 
-    // 4. Redirect after toast (useProtectedRoute will handle the actual navigation)
+    // 4. Redirect to home page after toast
     setTimeout(() => {
       setShowToast(false);
+      router.replace('/(tabs)');
     }, 1500);
   };
 
@@ -215,20 +223,25 @@ export default function PersonalInfoPage() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.backgroundDark} />
+      <StatusBar barStyle="light-content" backgroundColor="#4a7cff" />
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#6aa8ff', '#4a7cff', '#3a6cee']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.headerBanner}
+      >
         <TouchableOpacity
           onPress={() => router.replace('/(tabs)')}
           style={styles.iconButton}
         >
-          <Ionicons name="chevron-back" size={24} color={COLORS.primary} />
+          <Ionicons name="chevron-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('profile.title')}</Text>
         <View style={styles.headerRight} />
-      </View>
+      </LinearGradient>
 
       <ScrollView
         style={styles.scrollView}
@@ -236,76 +249,88 @@ export default function PersonalInfoPage() {
       >
         <View style={styles.card}>
 
-          {/* Avatar Row */}
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => setModalVisible(true)}
-            disabled={uploadingAvatar}
-          >
-            <Text style={styles.label}>{t('profile.avatar')}</Text>
-            <View style={styles.rowRight}>
-              <View style={styles.avatarImageContainer}>
-                <Image
-                  source={{ uri: avatarUri }}
-                  style={styles.avatar}
-                />
-                {/* VIP Badge - Bottom Right */}
-                {vipActive ? (
-                  <View style={styles.vipBadge}>
-                    <Ionicons name="diamond" size={12} color="#FFD700" />
-                  </View>
-                ) : (
-                  <View style={styles.freeBadge}>
-                    <Text style={styles.freeBadgeText}>Free</Text>
-                  </View>
-                )}
-                {uploadingAvatar && (
-                  <View style={styles.avatarLoadingOverlay}>
-                    <ActivityIndicator color={COLORS.white} size="small" />
-                  </View>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Nickname Row */}
-          <TouchableOpacity
-            style={styles.row}
-            onPress={() => router.push('/profile/edit-nickname')}
-          >
-            <Text style={styles.label}>{t('profile.nickname')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valueText}>{nickname}</Text>
-              <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.divider} />
-
-          {/* Account Row */}
-          <View style={styles.row}>
-            <Text style={styles.label}>{t('profile.account')}</Text>
-            <View style={styles.rowRight}>
-              <Text style={styles.valueText}>{accountId}</Text>
+          {/* Avatar Row - 暂时隐藏 */}
+          {false && (
+            <>
               <TouchableOpacity
-                style={styles.copyButton}
-                onPress={() => handleCopy(accountId)}
+                style={styles.row}
+                onPress={() => setModalVisible(true)}
+                disabled={uploadingAvatar}
               >
-                <Text style={styles.copyButtonText}>{t('profile.copy')}</Text>
+                <Text style={styles.label}>{t('profile.avatar')}</Text>
+                <View style={styles.rowRight}>
+                  <View style={styles.avatarImageContainer}>
+                    <Image
+                      source={{ uri: avatarUri }}
+                      style={styles.avatar}
+                    />
+                    {/* VIP Badge - Bottom Right */}
+                    {vipActive ? (
+                      <View style={styles.vipBadge}>
+                        <Ionicons name="diamond" size={12} color="#FFD700" />
+                      </View>
+                    ) : (
+                      <View style={styles.freeBadge}>
+                        <Text style={styles.freeBadgeText}>Free</Text>
+                      </View>
+                    )}
+                    {uploadingAvatar && (
+                      <View style={styles.avatarLoadingOverlay}>
+                        <ActivityIndicator color={COLORS.white} size="small" />
+                      </View>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
+
+          {/* Nickname Row - 暂时隐藏 */}
+          {false && (
+            <>
+              <TouchableOpacity
+                style={styles.row}
+                onPress={() => router.push('/profile/edit-nickname')}
+              >
+                <Text style={styles.label}>{t('profile.nickname')}</Text>
+                <View style={styles.rowRight}>
+                  <Text style={styles.valueText}>{nickname}</Text>
+                  <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+                </View>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
+
+          {/* Account Name Row */}
+          <View style={styles.row}>
+            <Text style={styles.label}>账号</Text>
+            <View style={styles.rowRight}>
+              <Text style={styles.valueText}>{accountName}</Text>
+              <TouchableOpacity
+                style={styles.copyIconButton}
+                onPress={() => handleCopy(accountName)}
+              >
+                <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.divider} />
 
-          {/* Email Row */}
+          {/* User ID Row */}
           <View style={styles.row}>
-            <Text style={styles.label}>{t('profile.email')}</Text>
+            <Text style={styles.label}>ID</Text>
             <View style={styles.rowRight}>
-              <Text style={styles.valueText}>{email}</Text>
+              <Text style={styles.valueText}>{userId}</Text>
+              <TouchableOpacity
+                style={styles.copyIconButton}
+                onPress={() => handleCopy(userId)}
+              >
+                <Ionicons name="copy-outline" size={18} color={COLORS.primary} />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -456,7 +481,7 @@ export default function PersonalInfoPage() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.backgroundDark,
+    backgroundColor: '#f8f9fa',
     ...(Platform.OS === 'web' && {
       position: 'fixed' as any,
       width: '100%',
@@ -464,6 +489,14 @@ const styles = StyleSheet.create({
       overflow: 'hidden',
       touchAction: 'pan-y' as any,
     }),
+  },
+  headerBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    height: 56,
   },
   header: {
     flexDirection: 'row',
@@ -479,9 +512,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   headerTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.textMainDark,
+    color: '#ffffff',
   },
   headerRight: {
     width: 40,
@@ -491,35 +524,36 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 24,
+    paddingTop: 20,
     paddingBottom: 32,
   },
   card: {
-    backgroundColor: COLORS.cardDark,
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    marginHorizontal: 0,
+    marginTop: 0,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
-    backgroundColor: COLORS.cardDark,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    backgroundColor: '#ffffff',
   },
   divider: {
     height: 1,
-    backgroundColor: 'rgba(37, 37, 37, 0.5)',
-    marginHorizontal: 16,
+    backgroundColor: '#f5f5f5',
+    marginLeft: 20,
   },
   modalOverlay: {
     flex: 1,
@@ -558,20 +592,22 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '500',
-    color: COLORS.textMainDark,
+    color: '#1a1a1a',
+    minWidth: 60,
   },
   rowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
     flex: 1,
     justifyContent: 'flex-end',
   },
   valueText: {
-    fontSize: 14,
-    color: COLORS.textSubDark,
+    fontSize: 15,
+    color: '#4a4a4a',
+    fontWeight: '400',
   },
   avatarImageContainer: {
     width: 40,
@@ -632,39 +668,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  copyIconButton: {
+    padding: 8,
+    marginLeft: 4,
+    borderRadius: 8,
+  },
   copyButton: {
-    backgroundColor: COLORS.cardHighlight,
-    borderWidth: 1,
-    borderColor: COLORS.borderDark,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
+    backgroundColor: '#4a7cff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
     marginLeft: 8,
+    shadowColor: '#4a7cff',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 2,
   },
   copyButtonText: {
-    fontSize: 12,
-    color: COLORS.textMainDark,
+    fontSize: 13,
+    color: '#ffffff',
+    fontWeight: '600',
   },
   bioText: {
     fontSize: 14,
-    color: COLORS.textSubDark,
+    color: '#666666',
     textAlign: 'right',
     flex: 1,
   },
   logoutButton: {
-    marginTop: 24,
-    backgroundColor: COLORS.cardDark,
+    marginTop: 32,
+    marginHorizontal: 0,
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 16,
+    paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: COLORS.borderDark,
+    borderColor: '#e0e0e0',
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   logoutText: {
-    color: '#FF4D4F',
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#666666',
+    fontSize: 15,
+    fontWeight: '500',
   },
   // Logout Modal Styles
   logoutModalOverlay: {

@@ -30,6 +30,7 @@ type AuthContextType = {
   signInWithOtp: (email: string) => Promise<{ error: any }>;
   verifyOtp: (email: string, token: string) => Promise<{ error: any; data?: any }>;
   signInWithPassword: (email: string, password: string) => Promise<{ error: any; data?: any }>;
+  signInOrSignUpWithCustomAccount: (account: string, password: string) => Promise<{ error: any; data?: any; isNewUser?: boolean }>;
   updatePassword: (newPassword: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -43,6 +44,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithOtp: async () => ({ error: null }),
   verifyOtp: async () => ({ error: null }),
   signInWithPassword: async () => ({ error: null }),
+  signInOrSignUpWithCustomAccount: async () => ({ error: null }),
   updatePassword: async () => ({ error: null }),
   signOut: async () => {},
   refreshProfile: async () => {},
@@ -302,13 +304,68 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // 登录即注册：使用自定义账号（支持手机号、邮箱、汉字或任意格式）
+  const signInOrSignUpWithCustomAccount = async (account: string, password: string) => {
+    try {
+      console.log('🔐 开始自定义账号登录即注册:', account);
+
+      // 对账号进行编码（支持汉字等特殊字符）
+      const encodedAccount = encodeURIComponent(account);
+      // 将自定义账号转换为邮箱格式（添加固定后缀）
+      const email = `${encodedAccount}@mashangfa.local`;
+
+      // 1. 先尝试登录
+      const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (!loginError && loginData.session) {
+        console.log('✅ 登录成功');
+        return { data: loginData, error: null, isNewUser: false };
+      }
+
+      // 2. 登录失败，检查是否是用户不存在
+      if (loginError?.message?.includes('Invalid login credentials') ||
+          loginError?.message?.includes('用户不存在')) {
+        console.log('👤 用户不存在，尝试注册...');
+
+        // 3. 自动注册
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            // 自动确认邮箱，无需验证
+            emailRedirectTo: undefined,
+          }
+        });
+
+        if (signUpError) {
+          console.error('❌ 注册失败:', signUpError);
+          const errorMessage = translateAuthError(signUpError.message);
+          return { data: null, error: { ...signUpError, message: errorMessage }, isNewUser: false };
+        }
+
+        console.log('✅ 注册成功，已自动登录');
+        return { data: signUpData, error: null, isNewUser: true };
+      }
+
+      // 4. 其他错误
+      const errorMessage = loginError ? translateAuthError(loginError.message) : '登录失败';
+      return { data: null, error: { message: errorMessage }, isNewUser: false };
+    } catch (error: any) {
+      console.error('🔐 自定义账号登录即注册异常:', error);
+      return { data: null, error: { message: error?.message || '操作失败，请重试' }, isNewUser: false };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, profile, loading, signInWithOtp, verifyOtp, signInWithPassword, updatePassword, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ session, user, profile, loading, signInWithOtp, verifyOtp, signInWithPassword, updatePassword, signInOrSignUpWithCustomAccount, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
