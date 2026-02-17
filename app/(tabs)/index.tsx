@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
 
 // 公告横幅组件
 const ANNOUNCEMENTS = [
@@ -68,36 +69,8 @@ const DRAW_MINUTE = parseInt(process.env.EXPO_PUBLIC_DRAW_MINUTE || '30', 10);
 const PREDICTION_HOUR = parseInt(process.env.EXPO_PUBLIC_PREDICTION_HOUR || '15', 10);
 const PREDICTION_MINUTE = parseInt(process.env.EXPO_PUBLIC_PREDICTION_MINUTE || '0', 10);
 
-// 六合彩预测数据（模拟数据）
-const PREDICTION_DATA = [
-  { period: '047期', content: '【龙猴+地肖】', result: '特鸡07' },
-  { period: '046期', content: '【天肖+鸡狗】', result: '特兔03' },
-  { period: '045期', content: '【猴龙+地肖】', result: '特蛇01' },
-  { period: '044期', content: '【天肖+狗鸡】', result: '特猪19' },
-  { period: '043期', content: '【猴龙+地肖】', result: '特蛇13' },
-  { period: '041期', content: '【天肖+狗虎】', result: '特马36' },
-  { period: '040期', content: '【猴马+地肖】', result: '特虎28' },
-  { period: '039期', content: '【龙猴+地肖】', result: '特羊11' },
-  { period: '038期', content: '【猴马+地肖】', result: '特鼠42' },
-  { period: '036期', content: '【兔马+地肖】', result: '特蛇01' },
-  { period: '034期', content: '【天肖+狗羊】', result: '特猪19' },
-  { period: '032期', content: '【龙猪+地肖】', result: '特鼠06' },
-  { period: '031期', content: '【天肖+鼠狗】', result: '特龙26' },
-  { period: '030期', content: '【天肖+狗马】', result: '特牛41' },
-  { period: '029期', content: '【龙牛+地肖】', result: '特蛇01' },
-  { period: '028期', content: '【天肖+狗羊】', result: '特兔03' },
-  { period: '027期', content: '【天肖+羊鸡】', result: '特鸡45' },
-  { period: '026期', content: '【天肖+鸡狗】', result: '特猪19' },
-  { period: '025期', content: '【猪牛+地肖】', result: '特蛇37' },
-  { period: '024期', content: '【牛兔+地肖】', result: '特虎28' },
-  { period: '023期', content: '【猪牛+地肖】', result: '特羊47' },
-  { period: '022期', content: '【牛龙+地肖】', result: '特鼠18' },
-  { period: '021期', content: '【兔牛+地肖】', result: '特鼠42' },
-  { period: '020期', content: '【牛马+地肖】', result: '特马12' },
-  { period: '019期', content: '【天肖+鸡虎】', result: '特猴46' },
-  { period: '017期', content: '【牛马+地肖】', result: '特狗32' },
-  { period: '016期', content: '【马猴+地肖】', result: '特鼠06' },
-];
+// 六合彩预测数据（模拟数据）- 已废弃，使用数据库数据
+// const PREDICTION_DATA = [];
 
 // 模拟开奖数据
 const LOTTERY_DATA = {
@@ -233,9 +206,35 @@ export default function LotteryPage() {
   const [drawCountdown, setDrawCountdown] = useState<string>('');
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
   const [isAfterPredictionTime, setIsAfterPredictionTime] = useState<boolean>(false);
-  const currentData = LOTTERY_DATA[activeTab];
   const router = useRouter();
   const { session } = useAuth();
+  const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
+
+  const currentSettings = LOTTERY_DATA[activeTab];
+  // 当前最新的一期（数据库第一条）
+  const currentIssue = tiandiData.length > 0 ? tiandiData[0] : null;
+  // 历史数据（除第一条外）
+  const historyItems = tiandiData.length > 1 ? tiandiData.slice(1) : [];
+  
+  // 显示的期号：优先使用数据库第一条，否则使用默认
+  const displayPeriod = currentIssue ? currentIssue.issue_no : currentSettings.nextPeriod;
+
+  useEffect(() => {
+    // 拉取数据并订阅
+    const loadData = async () => {
+      console.log('Fetching Tiandi Specials...');
+      const data = await fetchTiandiSpecials();
+      console.log('Tiandi Data fetched:', data.length);
+      setTiandiData(data);
+    };
+    
+    loadData();
+    
+    // 订阅变动
+    const unsubscribe = subscribeToTiandiSpecials(loadData);
+    
+    return () => unsubscribe();
+  }, []);
 
   // 计算两个倒计时：开奖时间和预测发布时间
   useEffect(() => {
@@ -338,7 +337,7 @@ export default function LotteryPage() {
         <View style={styles.headerSection}>
           <View style={styles.periodRow}>
             <Text style={styles.periodLabel}>新澳门彩</Text>
-            <Text style={styles.periodNumber}>{currentData.period}</Text>
+            <Text style={styles.periodNumber}>{displayPeriod}</Text>
           </View>
           
           <View style={styles.countdownContainer}>
@@ -358,7 +357,7 @@ export default function LotteryPage() {
         <View style={styles.numbersSection}>
           {/* 平码 */}
           <View style={styles.numbersRow}>
-            {currentData.numbers.map((item, index) => (
+            {currentSettings.numbers.map((item, index) => (
               <View key={index} style={styles.ballContainer}>
                 <View style={[styles.ball, getBallStyle(item.color), getBallBorderStyle(item.color)]}>
                   <Text style={styles.ballNumber}>{item.num}</Text>
@@ -374,10 +373,10 @@ export default function LotteryPage() {
             
             {/* 特码 */}
             <View style={styles.ballContainer}>
-              <View style={[styles.ball, getBallStyle(currentData.special.color), getBallBorderStyle(currentData.special.color)]}>
-                <Text style={styles.ballNumber}>{currentData.special.num}</Text>
+              <View style={[styles.ball, getBallStyle(currentSettings.special.color), getBallBorderStyle(currentSettings.special.color)]}>
+                <Text style={styles.ballNumber}>{currentSettings.special.num}</Text>
               </View>
-              <Text style={styles.animalText}>{currentData.special.animal}</Text>
+              <Text style={styles.animalText}>{currentSettings.special.animal}</Text>
             </View>
           </View>
         </View>
@@ -388,8 +387,8 @@ export default function LotteryPage() {
             <Text style={styles.clockText}>🕐</Text>
           </View>
           <Text style={styles.nextDrawText}>
-            下期开奖: {currentData.nextDate}{' '}
-            <Text style={styles.nextPeriodText}>{currentData.nextPeriod}</Text>
+            下期开奖: {currentSettings.nextDate}{' '}
+            <Text style={styles.nextPeriodText}>{displayPeriod}</Text>
           </Text>
         </View>
 
@@ -398,10 +397,8 @@ export default function LotteryPage() {
           {/* 标题 */}
           <View style={styles.predictionHeader}>
             <Text style={styles.predictionTitle}>精准天地中特</Text>
-            <View style={styles.winRateBadge}>
-              <Text style={styles.winRateText}>胜率 88%</Text>
-            </View>
           </View>
+          
           
           {/* 天肖地肖说明 */}
           <View style={styles.legendContainer}>
@@ -428,10 +425,10 @@ export default function LotteryPage() {
           </View>
           
           {/* 数据列表 */}
-          {/* 048期预测（当前期） */}
+          {/* 当前期预测（数据库第一条） */}
           <View style={[styles.predictionDataRow, styles.currentPeriodRow, !isAfterPredictionTime ? styles.lockedPeriodRow : null]}>
             <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText, styles.currentPeriodText]}>
-              048期
+              {displayPeriod}
             </Text>
             <View style={[styles.predictionCellView, styles.predictionContentCell]}>
               {!isAfterPredictionTime ? (
@@ -442,7 +439,11 @@ export default function LotteryPage() {
               ) : session ? (
                 // 预测时间后且已登录：展示真实内容
                 <View style={styles.predictionContentContainer}>
-                  <Text style={styles.predictionContentText}>天肖+狗鸡</Text>
+                  {currentIssue ? (
+                    renderPredictionContent(currentIssue.prediction_content || '')
+                  ) : (
+                    <Text style={styles.predictionContentText}>暂无数据</Text>
+                  )}
                 </View>
               ) : (
                 // 预测时间后未登录：提示登录
@@ -455,29 +456,34 @@ export default function LotteryPage() {
               {!isAfterPredictionTime ? (
                 <Text style={[styles.pendingResultText, styles.lockedText]}>特?00</Text>
               ) : session ? (
-                <Text style={styles.pendingResultText}>特?00</Text>
+                 // 已登录且时间已到
+                 currentIssue && currentIssue.result_text ? (
+                   renderPredictionResult(currentIssue.result_text)
+                 ) : (
+                   <Text style={styles.pendingResultText}>特?00</Text>
+                 )
               ) : (
                 <Text style={styles.pendingResultText}>--</Text>
               )}
             </View>
           </View>
           
-          {PREDICTION_DATA.map((item, index) => (
+          {historyItems.map((item, index) => (
             <View 
-              key={item.period} 
+              key={item.id} 
               style={[
                 styles.predictionDataRow,
                 index % 2 === 0 ? styles.predictionEvenRow : styles.predictionOddRow
               ]}
             >
               <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText]}>
-                {item.period}
+                {item.issue_no}
               </Text>
               <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-                {renderPredictionContent(item.content)}
+                {renderPredictionContent(item.prediction_content || '')}
               </View>
               <View style={[styles.predictionCellView, styles.predictionResultCell]}>
-                {renderPredictionResult(item.result)}
+                {renderPredictionResult(item.result_text || '')}
               </View>
             </View>
           ))}
