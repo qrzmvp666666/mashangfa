@@ -209,6 +209,7 @@ export default function LotteryPage() {
   const router = useRouter();
   const { session } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
+  const [tiandiLoading, setTiandiLoading] = useState(true);
 
   const currentSettings = LOTTERY_DATA[activeTab];
   // 当前最新的一期（数据库第一条）
@@ -226,6 +227,7 @@ export default function LotteryPage() {
       const data = await fetchTiandiSpecials();
       console.log('Tiandi Data fetched:', data.length);
       setTiandiData(data);
+      setTiandiLoading(false);
     };
     
     loadData();
@@ -442,7 +444,7 @@ export default function LotteryPage() {
                   {currentIssue ? (
                     renderPredictionContent(currentIssue.prediction_content || '')
                   ) : (
-                    <Text style={styles.predictionContentText}>暂无数据</Text>
+                    <Text style={styles.predictionContentText}>{tiandiLoading ? '加载中...' : '暂无数据'}</Text>
                   )}
                 </View>
               ) : (
