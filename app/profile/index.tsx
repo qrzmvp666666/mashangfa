@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, SafeAreaView, StatusBar, Modal, Platform, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
@@ -27,6 +27,13 @@ export default function PersonalInfoPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
+
+  // 页面加载时获取用户资料
+  useEffect(() => {
+    if (user?.id) {
+      refreshProfile();
+    }
+  }, [user?.id]);
 
   // Data from profile or fallback to user object
   const avatarUri = profile?.avatar_url || "https://lh3.googleusercontent.com/aida-public/AB6AXuAaf9dVjkyC17LtClctTc-4sEEVvnJDQ0sqSp-elCOM8ljGaMwkhTiacOULcPPbYtSTu_lFPmnNtKsVxiOA5eHNZkJE8KHzJP-Ltx4rAvebxj5DVRDSPgWop3DQj8PuIxIIGVG_9IjKOT49af1xYWNvQQvVOeMdNj3kbhN4shXLBHo1Imm3YXyaQ_Bf8Gav9EMWI697UBzvaFwIV24Dxnf9tVPbk9jCB7kc-S_KzV8Gm3EW2a9jUrIkf3nvAt1kgTa8y1UdRtKUfg";

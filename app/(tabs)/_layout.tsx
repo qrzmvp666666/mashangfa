@@ -35,17 +35,18 @@ export default function TabLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  // 登录检查
+  // 登录检查 - 只检查我的页面，首页不需要登录
   useEffect(() => {
     if (loading) return;
 
-    const inTabs = segments[0] === '(tabs)';
+    const currentPath = pathname || '';
+    const inMyPage = currentPath.includes('/my');
 
-    if (!session && inTabs) {
-      // 未登录但在受保护页面，重定向到登录页
+    if (!session && inMyPage) {
+      // 未登录但在我的页面，重定向到登录页
       router.replace('/login');
     }
-  }, [session, loading, segments]);
+  }, [session, loading, pathname]);
 
   useEffect(() => {
     if (pathname === '/trade') {

@@ -118,11 +118,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setSession(session);
         setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const profileData = await fetchProfile(session.user.id);
-          setProfile(profileData);
-        }
+        // 不在启动时自动获取 profile，只在访问个人资料页面时获取
       } catch (error) {
         console.error('Exception in fetchSession:', error);
       } finally {
@@ -135,19 +131,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        // Small delay to allow trigger to run if it's a new registration
-        if (_event === 'SIGNED_IN') {
-           setTimeout(async () => {
-             const profileData = await fetchProfile(session.user.id);
-             setProfile(profileData);
-           }, 500);
-        } else {
-           const profileData = await fetchProfile(session.user.id);
-           setProfile(profileData);
-        }
-      } else {
+      // 不在认证状态变化时自动获取 profile
+      if (!session?.user) {
         setProfile(null);
       }
       
