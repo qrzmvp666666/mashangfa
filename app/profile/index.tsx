@@ -214,7 +214,7 @@ export default function PersonalInfoPage() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={() => router.replace('/(tabs)')}
           style={styles.iconButton}
         >
           <Ionicons name="chevron-back" size={24} color={COLORS.primary} />

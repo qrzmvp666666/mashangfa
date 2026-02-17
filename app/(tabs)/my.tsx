@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Platform, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useFocusEffect } from '@react-navigation/native';
-import { UserInfo, Stats } from '../../types';
+
+import { UserInfo } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useTranslation } from '../../lib/i18n';
 import { isVipActive, formatVipExpiresAt } from '../../lib/redemptionService';
-import { getUserStats } from '../../lib/userTraderService';
+
 
 const COLORS = {
   primary: "#2ebd85",
@@ -28,9 +28,7 @@ const MyPage: React.FC = () => {
   const { user, profile } = useAuth();
   const { language, setLanguage } = useSettings();
   const { t } = useTranslation();
-  const [exchangeAccountCount, setExchangeAccountCount] = useState<number>(0);
-  const [followCount, setFollowCount] = useState<number>(0);
-  const [subscriptionCount, setSubscriptionCount] = useState<number>(0);
+
 
   // Generate default info from user object or profile
   const defaultNickname = profile?.username || user?.email?.split('@')[0] || 'User';
@@ -39,59 +37,13 @@ const MyPage: React.FC = () => {
   const isVerified = profile?.is_verified || false;
   const vipActive = isVipActive(profile?.vip_expires_at || null);
 
-  // 加载所有统计数据（关注、订阅、交易账户）
-  useEffect(() => {
-    const loadUserStats = async () => {
-      if (!user?.id) return;
 
-      try {
-        const stats = await getUserStats(user.id);
-        setFollowCount(stats.followCount);
-        setSubscriptionCount(stats.subscriptionCount);
-        setExchangeAccountCount(stats.exchangeAccountCount);
-      } catch (error) {
-        console.error('加载用户统计数据失败:', error);
-        setFollowCount(0);
-        setSubscriptionCount(0);
-        setExchangeAccountCount(0);
-      }
-    };
-
-    loadUserStats();
-  }, [user]);
-
-  // 当页面获得焦点时刷新统计数据
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadStats = async () => {
-        if (!user?.id) return;
-
-        try {
-          const stats = await getUserStats(user.id);
-          setFollowCount(stats.followCount);
-          setSubscriptionCount(stats.subscriptionCount);
-          setExchangeAccountCount(stats.exchangeAccountCount);
-        } catch (error) {
-          console.error('刷新用户统计数据失败:', error);
-        }
-      };
-
-      loadStats();
-    }, [user?.id])
-  );
 
   // 使用类型定义的数据
   const userInfo: UserInfo = {
     username: defaultNickname,
     accountId: accountId,
     verified: isVerified,
-  };
-
-  const stats: Stats = {
-    subscriptions: subscriptionCount,
-    following: followCount,
-    friends: profile?.friends_count || 0,
-    favorites: profile?.favorites_count || 0,
   };
 
   return (
@@ -146,26 +98,6 @@ const MyPage: React.FC = () => {
             <Ionicons name="chevron-forward" size={20} color="#8A919E" />
           </View>
         </TouchableOpacity>
-
-        {/* Stats Section - 暂时隐藏 */}
-        {false && (
-          <View style={styles.statsCard}>
-            <View style={styles.statsRow}>
-              <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(tabs)?tab=copy&filter=已订阅')}>
-                <Text style={styles.statNumber}>{subscriptionCount}</Text>
-                <Text style={styles.statLabel}>订阅</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.statItem} onPress={() => router.push('/(tabs)?tab=copy&filter=已关注')}>
-                <Text style={styles.statNumber}>{followCount}</Text>
-                <Text style={styles.statLabel}>关注</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.statItem} onPress={() => router.push('/profile/exchange-accounts')}>
-                <Text style={styles.statNumber}>{exchangeAccountCount > 99 ? '99+' : exchangeAccountCount}</Text>
-                <Text style={styles.statLabel}>交易账户</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
         {/* Promotion Banner */}
         {/* <View style={styles.promoBanner}>

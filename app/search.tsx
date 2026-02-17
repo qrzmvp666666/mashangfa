@@ -8,7 +8,7 @@ import { useProtectedRoute } from '../hooks/useProtectedRoute';
 import { useAuth } from '../contexts/AuthContext';
 import { searchTraders, TraderWithStats, getMultipleTradersRoiTrend } from '../lib/traderService';
 import { getSearchHistory, addSearchHistory, clearSearchHistory } from '../lib/searchHistoryService';
-import { getFollowedTraders, getSubscribedTraders } from '../lib/userTraderService';
+
 import { useTranslation } from '../lib/i18n';
 
 const COLORS = {
@@ -75,8 +75,7 @@ export default function SearchScreen() {
   const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
-  const [subscribedTraders, setSubscribedTraders] = useState<Set<string>>(new Set());
-  const [followedTraders, setFollowedTraders] = useState<Set<string>>(new Set());
+
   const [traderTrendData, setTraderTrendData] = useState<Map<string, Array<{ date: string; roi: number }>>>(new Map());
   
   const PAGE_SIZE = 10;
@@ -84,7 +83,6 @@ export default function SearchScreen() {
   // 加载搜索历史
   useEffect(() => {
     loadSearchHistory();
-    loadUserStatus();
   }, []);
 
   const loadSearchHistory = async () => {
@@ -93,22 +91,6 @@ export default function SearchScreen() {
       setHistory(savedHistory);
     } catch (error) {
       console.error('加载搜索历史失败:', error);
-    }
-  };
-
-  const loadUserStatus = async () => {
-    if (!user?.id) return;
-    
-    try {
-      const [subscribed, followed] = await Promise.all([
-        getSubscribedTraders(user.id),
-        getFollowedTraders(user.id)
-      ]);
-      
-      setSubscribedTraders(new Set(subscribed.map(item => item.trader_id)));
-      setFollowedTraders(new Set(followed.map(item => item.trader_id)));
-    } catch (error) {
-      console.error('加载用户状态失败:', error);
     }
   };
 
@@ -186,7 +168,6 @@ export default function SearchScreen() {
     
     setRefreshing(true);
     await performSearch(query, true);
-    await loadUserStatus();
     setRefreshing(false);
   };
 
@@ -254,11 +235,11 @@ export default function SearchScreen() {
   };
 
   const handleSubscriptionChange = () => {
-    loadUserStatus();
+    // 订阅状态变化处理
   };
 
   const handleFavoriteChange = () => {
-    loadUserStatus();
+    // 关注状态变化处理
   };
 
   // 检查是否接近底部
@@ -361,8 +342,8 @@ export default function SearchScreen() {
                     name={trader.name}
                     avatar={trader.avatar_url}
                     description={trader.description}
-                    initialIsSubscribed={subscribedTraders.has(trader.id)}
-                    initialIsFavorite={followedTraders.has(trader.id)}
+                    initialIsSubscribed={trader.is_subscribed || false}
+                    initialIsFavorite={trader.is_followed || false}
                     onSubscriptionChange={handleSubscriptionChange}
                     onFavoriteChange={handleFavoriteChange}
                     followers={trader.followers_count || 0}
