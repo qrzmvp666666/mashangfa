@@ -9,7 +9,6 @@ import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
-import { checkMembershipStatus, subscribeToMembershipChanges, MembershipStatus } from '../../lib/membershipService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
 
 // 公告横幅组件
@@ -215,33 +214,26 @@ export default function LotteryPage() {
   const [activeTab, setActiveTab] = useState<LotteryType>('macau');
   const [drawCountdown, setDrawCountdown] = useState<string>('');
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
-  const [isAfterPredictionTime, setIsAfterPredictionTime] = useState<boolean>(false);
   const router = useRouter();
   const { session, user } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
 
-  // 时间配置（从数据库加载，默认值作为 fallback）
+  // 时间配置（仅用于倒计时展示）
   const [DRAW_HOUR, setDrawHour] = useState(DEFAULT_DRAW_HOUR);
   const [DRAW_MINUTE, setDrawMinute] = useState(DEFAULT_DRAW_MINUTE);
   const [PREDICTION_HOUR, setPredictionHour] = useState(DEFAULT_PREDICTION_HOUR);
   const [PREDICTION_MINUTE, setPredictionMinute] = useState(DEFAULT_PREDICTION_MINUTE);
 
-  const [membershipStatus, setMembershipStatus] = useState<MembershipStatus>({
-    isVip: false,
-    label: '普通用户',
-    expiresAt: null,
-  });
-  const [membershipLoading, setMembershipLoading] = useState(true);
   const [rulesVisible, setRulesVisible] = useState(false);
   const [quickActionsVisible, setQuickActionsVisible] = useState(false);
   const [qrModalType, setQrModalType] = useState<'customer' | 'group' | null>(null);
 
   const currentSettings = LOTTERY_DATA[activeTab];
-  // 当前最新的一期（数据库第一条）
-  const currentIssue = tiandiData.length > 0 ? tiandiData[0] : null;
-  // 历史数据（除第一条外）
-  const historyItems = tiandiData.length > 1 ? tiandiData.slice(1) : [];
+  // 当前期（后端标记 is_current=true 的记录）
+  const currentIssue = tiandiData.find(item => item.is_current) || null;
+  // 历史数据
+  const historyItems = tiandiData.filter(item => !item.is_current);
   
   // 显示的期号：优先使用数据库第一条，否则使用默认
   const displayPeriod = currentIssue ? currentIssue.issue_no : currentSettings.nextPeriod;
@@ -262,34 +254,9 @@ export default function LotteryPage() {
     const unsubscribe = subscribeToTiandiSpecials(loadData);
     
     return () => unsubscribe();
-  }, []);
+  }, [session, user]);
 
-  // 检查会员状态
-  useEffect(() => {
-    if (!user?.id) {
-      setMembershipStatus({ isVip: false, label: '普通用户', expiresAt: null });
-      setMembershipLoading(false);
-      return;
-    }
-
-    const checkStatus = async () => {
-      const status = await checkMembershipStatus(user.id);
-      setMembershipStatus(status);
-      setMembershipLoading(false);
-    };
-
-    checkStatus();
-
-    // 订阅购买记录变动，实时更新会员状态
-    const unsubscribe = subscribeToMembershipChanges(user.id, checkStatus);
-
-    return () => unsubscribe();
-  }, [user?.id]);
-
-  // 用户是否有权查看最新预测：已登录 + 会员有效
-  const canViewPrediction = !!session && membershipStatus.isVip;
-
-  // 启动时从数据库加载时间配置
+  // 启动时从数据库加载时间配置（仅用于倒计时展示）
   useEffect(() => {
     getPlatformConfig().then(cfg => {
       setDrawHour(cfg.drawHour);
@@ -317,9 +284,6 @@ export default function LotteryPage() {
       
       // 2. 计算距离预测发布时间（15:00）的倒计时
       const predictionTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), PREDICTION_HOUR, PREDICTION_MINUTE, 0);
-      
-      // 判断是否已经超过预测发布时间
-      setIsAfterPredictionTime(now >= predictionTarget);
       
       if (now > predictionTarget) {
         predictionTarget.setDate(predictionTarget.getDate() + 1);
@@ -391,7 +355,7 @@ export default function LotteryPage() {
         </View>
         <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
           <View style={styles.headerProfileContainer}>
-            {session && !membershipLoading && membershipStatus.isVip && (
+            {session && currentIssue && currentIssue.visibility === 'visible' && (
               <View style={styles.headerVipBadge}>
                 <Text style={styles.headerVipText}>VIP</Text>
               </View>
@@ -663,53 +627,44 @@ export default function LotteryPage() {
           </View>
           
           {/* 数据列表 */}
-          {/* 当前期预测（数据库第一条） */}
-          <View style={[styles.predictionDataRow, styles.currentPeriodRow, !isAfterPredictionTime ? styles.lockedPeriodRow : null]}>
+          {/* 当前期预测（后端标记 is_current=true） */}
+          {currentIssue && (
+          <View style={[styles.predictionDataRow, styles.currentPeriodRow, currentIssue.visibility === 'locked' ? styles.lockedPeriodRow : null]}>
             <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText, styles.currentPeriodText]}>
-              {displayPeriod}
+              {currentIssue.issue_no}
             </Text>
             <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-              {!isAfterPredictionTime ? (
-                // 预测时间前（15点前）：灰色展示????
+              {currentIssue.visibility === 'locked' ? (
                 <View style={styles.predictionContentContainer}>
-                  <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
+                  <Text style={[styles.predictionContentText, styles.lockedText]}>{currentIssue.display_content}</Text>
                 </View>
-              ) : canViewPrediction ? (
-                // 预测时间后 + 已登录 + 会员有效：展示真实内容
+              ) : currentIssue.visibility === 'visible' ? (
                 <View style={styles.predictionContentContainer}>
-                  {currentIssue ? (
-                    renderPredictionContent(currentIssue.prediction_content || '')
-                  ) : (
-                    <Text style={styles.predictionContentText}>{tiandiLoading ? '加载中...' : '暂无数据'}</Text>
-                  )}
+                  {renderPredictionContent(currentIssue.display_content || '')}
                 </View>
-              ) : session ? (
-                // 已登录但非会员：提示购买
+              ) : currentIssue.cta_type === 'login' ? (
+                <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
+                  <Text style={styles.loginPromptText}>{currentIssue.cta_text || '登录查看'}</Text>
+                </TouchableOpacity>
+              ) : currentIssue.cta_type === 'buy_or_redeem' ? (
                 <TouchableOpacity onPress={() => router.push('/membership')} style={styles.loginPromptContainer}>
-                  <Text style={styles.buyPromptText}>🔒 开通会员/输入兑换码查看</Text>
+                  <Text style={styles.buyPromptText}>{currentIssue.display_content}</Text>
                 </TouchableOpacity>
               ) : (
-                // 未登录：提示登录
-                <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
-                  <Text style={styles.loginPromptText}>登录查看预测</Text>
-                </TouchableOpacity>
+                <Text style={styles.predictionContentText}>{currentIssue.display_content}</Text>
               )}
             </View>
             <View style={[styles.predictionCellView, styles.predictionResultCell]}>
-              {!isAfterPredictionTime ? (
-                <Text style={[styles.pendingResultText, styles.lockedText]}>特?00</Text>
-              ) : canViewPrediction ? (
-                 // 会员且时间已到
-                 currentIssue && currentIssue.result_text ? (
-                   renderPredictionResult(currentIssue.result_text)
-                 ) : (
-                   <Text style={styles.pendingResultText}>特?00</Text>
-                 )
+              {currentIssue.visibility === 'locked' ? (
+                <Text style={[styles.pendingResultText, styles.lockedText]}>{currentIssue.display_result}</Text>
+              ) : currentIssue.visibility === 'visible' && currentIssue.display_result && currentIssue.display_result !== '特?00' ? (
+                renderPredictionResult(currentIssue.display_result)
               ) : (
-                <Text style={styles.pendingResultText}>--</Text>
+                <Text style={styles.pendingResultText}>{currentIssue.display_result}</Text>
               )}
             </View>
           </View>
+          )}
           
           {historyItems.map((item, index) => (
             <View 
@@ -723,10 +678,10 @@ export default function LotteryPage() {
                 {item.issue_no}
               </Text>
               <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-                {renderPredictionContent(item.prediction_content || '')}
+                {renderPredictionContent(item.display_content || '')}
               </View>
               <View style={[styles.predictionCellView, styles.predictionResultCell]}>
-                {renderPredictionResult(item.result_text || '')}
+                {renderPredictionResult(item.display_result || '')}
               </View>
             </View>
           ))}

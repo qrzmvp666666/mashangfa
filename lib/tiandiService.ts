@@ -5,18 +5,24 @@ export interface TiandiSpecial {
   issue_no: string;
   prediction_content: string | null;
   result_text: string | null;
-  is_show: boolean | null;
+  is_current: boolean;
+  display_content: string;
+  display_result: string;
+  visibility: 'locked' | 'visible' | 'login_required' | 'member_only';
+  cta_type: 'login' | 'buy_or_redeem' | null;
+  cta_text: string | null;
   created_at: string | null;
   updated_at: string | null;
 }
 
 /**
- * 获取“精选天地中特”列表
- * 使用 RPC 函数获取排序后的数据
+ * 获取"精选天地中特"列表（含后端处理的展示逻辑）
+ * 后端根据用户身份和时间返回 display_content / visibility 等字段
+ * 前端只需直接展示，不再做权限/时间判断
  */
 export async function fetchTiandiSpecials(): Promise<TiandiSpecial[]> {
   try {
-    const { data, error } = await supabase.rpc('get_featured_tiandi_specials');
+    const { data, error } = await supabase.rpc('get_tiandi_with_visibility');
     if (error) {
       console.error('Error fetching tiandi specials:', error);
       return [];
