@@ -107,7 +107,7 @@ export default function MembershipPage() {
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : (
-          plans.map((plan) => (
+          plans.filter(plan => plan.duration_days !== 1).map((plan) => (
             <View key={plan.id} style={styles.planCard}>
               {/* 套餐名称和价格 */}
               <View style={styles.planHeader}>

@@ -405,7 +405,7 @@ export default function LotteryPage() {
               {/* 开奖时间 */}
               <View style={styles.rulesSection}>
                 <Text style={styles.rulesSectionTitle}>⏰ 开奖时间</Text>
-                <Text style={styles.rulesText}>• 每天 <Text style={styles.rulesHighlight}>{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : '整'}</Text> 准时开奖</Text>
+                <Text style={styles.rulesText}>• 每天 <Text style={styles.rulesHighlight}>{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : '整'}</Text> 同官方同步开奖</Text>
                 <Text style={styles.rulesText}>• 开奖结果将在页面上方实时更新</Text>
               </View>
 
@@ -633,14 +633,14 @@ export default function LotteryPage() {
 
         {/* 预测列表 */}
         <View style={styles.predictionSection}>
-          {/* 标题 + 会员标识 */}
+          {/* 标题 + 倒计时标签 */}
           <View style={styles.predictionHeader}>
             <Text style={styles.predictionTitle}>精准天地中特</Text>
+            <View style={styles.predictionCountdownTag}>
+              <Text style={styles.predictionCountdownTagText}>距{PREDICTION_HOUR}点:{predictionCountdown}</Text>
+            </View>
           </View>
 
-
-          
-          
           {/* 天肖地肖说明 */}
           <View style={styles.legendContainer}>
             <View style={styles.legendLeft}>
@@ -652,9 +652,6 @@ export default function LotteryPage() {
                 <Text style={styles.diXiaoLabel}>地肖：</Text>
                 <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
               </Text>
-            </View>
-            <View style={styles.legendRight}>
-              <Text style={styles.legendNotice}>每天{PREDICTION_HOUR}点告知{'\n'}距离{PREDICTION_HOUR}点:{predictionCountdown}</Text>
             </View>
           </View>
           
@@ -1334,6 +1331,9 @@ const styles = StyleSheet.create({
   predictionHeader: {
     backgroundColor: '#4a7cff',
     paddingVertical: 12,
+    paddingHorizontal: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     position: 'relative',
   },
@@ -1341,6 +1341,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#ffff00',
+  },
+  predictionCountdownTag: {
+    backgroundColor: '#fff3e0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#ff9800',
+  },
+  predictionCountdownTagText: {
+    fontSize: 11,
+    color: '#ff6600',
+    fontWeight: '500',
   },
   winRateBadge: {
     position: 'absolute',
