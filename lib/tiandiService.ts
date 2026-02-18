@@ -1,10 +1,19 @@
 import { supabase } from './supabase';
 
+export interface BallData {
+  num: string;
+  animal: string;
+  color: 'red' | 'blue' | 'green';
+}
+
 export interface TiandiSpecial {
   id: number;
   issue_no: string;
   prediction_content: string | null;
-  result_text: string | null;
+  is_correct: boolean | null;
+  result_balls: BallData[] | null;
+  result_animal: string | null;
+  result_number: number | null;
   is_current: boolean;
   display_content: string;
   display_result: string;

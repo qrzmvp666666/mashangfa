@@ -8,7 +8,7 @@ import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
-import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial } from '../../lib/tiandiService';
+import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData } from '../../lib/tiandiService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
 
 // 公告横幅组件
@@ -192,12 +192,18 @@ const renderPredictionContent = (content: string) => {
   );
 };
 
-// 解析结果，高亮特码
-const renderPredictionResult = (result: string) => {
-  const match = result.match(/特([\?\u4e00-\u9fa5]*)(\d*)/);
-  if (!match) return <Text style={styles.predictionResultText}>{result}</Text>;
+// 渲染预测结果：显示开奖特码 + 命中/未中标识
+const renderPredictionResult = (item: TiandiSpecial) => {
+  const result = item.display_result;
+  const match = result.match(/特([\u4e00-\u9fa5]+)(\d+)/);
+  
+  if (!match) {
+    // 无开奖结果（待开奖）
+    return <Text style={styles.pendingResultText}>{result}</Text>;
+  }
   
   const [, animal, number] = match;
+  const isCorrect = item.is_correct;
   
   return (
     <View style={styles.resultContainer}>
@@ -205,7 +211,8 @@ const renderPredictionResult = (result: string) => {
         特<Text style={styles.resultAnimal}>{animal}</Text>
         <Text style={styles.resultNumber}>{number}</Text>
       </Text>
-      <Text style={styles.hitBadge}>中！</Text>
+      {isCorrect === true && <Text style={styles.hitBadge}>✅中</Text>}
+      {isCorrect === false && <Text style={styles.missBadge}>❌</Text>}
     </View>
   );
 };
@@ -235,8 +242,18 @@ export default function LotteryPage() {
   // 历史数据
   const historyItems = tiandiData.filter(item => !item.is_current);
   
-  // 显示的期号：优先使用数据库第一条，否则使用默认
-  const displayPeriod = currentIssue ? currentIssue.issue_no : currentSettings.nextPeriod;
+  // 从开奖结果中取最新一条，计算"下期"期号
+  const latestResult = tiandiData.find(item => item.result_balls && item.result_balls.length === 7);
+  const latestResultPeriod = latestResult ? latestResult.issue_no : null; // e.g. "048期"
+  
+  // 下期期号：从开奖结果最新期号 +1（如 048期 → 049期）
+  const nextPeriod = (() => {
+    if (!latestResultPeriod) return '';
+    const numMatch = latestResultPeriod.match(/(\d+)/);
+    if (!numMatch) return '';
+    const nextNum = parseInt(numMatch[1], 10) + 1;
+    return String(nextNum).padStart(numMatch[1].length, '0') + '期';
+  })();
 
   useEffect(() => {
     // 拉取数据并订阅
@@ -535,7 +552,9 @@ export default function LotteryPage() {
         <View style={styles.headerSection}>
           <View style={styles.periodRow}>
             <Text style={styles.periodLabel}>新澳门彩</Text>
-            <Text style={styles.periodNumber}>{displayPeriod}</Text>
+            <Text style={styles.periodNumber}>
+              {latestResultPeriod || ''}
+            </Text>
           </View>
           
           <View style={styles.countdownContainer}>
@@ -551,46 +570,66 @@ export default function LotteryPage() {
           )}
         </View>
 
-        {/* 开奖号码区域 */}
+        {/* 开奖号码区域 - 显示最新一期完整开奖结果 */}
         <View style={styles.numbersSection}>
-          {/* 平码 */}
-          <View style={styles.numbersRow}>
-            {currentSettings.numbers.map((item, index) => (
-              <View key={index} style={styles.ballContainer}>
-                <View style={[styles.ball, getBallStyle(item.color), getBallBorderStyle(item.color)]}>
-                  <Text style={styles.ballNumber}>{item.num}</Text>
+          {(() => {
+            // 找到最新一条有开奖结果的记录
+            const latestWithResult = tiandiData.find(item => item.result_balls && item.result_balls.length === 7);
+            if (latestWithResult && latestWithResult.result_balls) {
+              const normalBalls = latestWithResult.result_balls.slice(0, 6);
+              const specialBall = latestWithResult.result_balls[6];
+              return (
+                <View style={styles.latestResultContainer}>
+                  <View style={styles.numbersRow}>
+                    {normalBalls.map((ball: BallData, index: number) => (
+                      <View key={index} style={styles.ballContainer}>
+                        <View style={[styles.ball, getBallStyle(ball.color), getBallBorderStyle(ball.color)]}>
+                          <Text style={[styles.ballNumber, { color: ball.color === 'red' ? '#ff4444' : ball.color === 'blue' ? '#4488ff' : '#44aa44' }]}>{ball.num}</Text>
+                        </View>
+                        <Text style={styles.animalText}>{ball.animal}</Text>
+                      </View>
+                    ))}
+                    <View style={styles.plusContainer}>
+                      <Text style={styles.plusSignText}>+</Text>
+                    </View>
+                    <View style={styles.ballContainer}>
+                      <View style={[styles.ball, styles.specialBallHighlight, getBallBorderStyle(specialBall.color)]}>
+                        <Text style={styles.specialBallNum}>{specialBall.num}</Text>
+                      </View>
+                      <Text style={styles.specialAnimalLabel}>{specialBall.animal}</Text>
+                    </View>
+                  </View>
                 </View>
-                <Text style={styles.animalText}>{item.animal}</Text>
+              );
+            }
+            // 无开奖数据时显示占位
+            return (
+              <View style={styles.latestResultContainer}>
+                <Text style={styles.latestResultPlaceholder}>等待开奖...</Text>
               </View>
-            ))}
-            
-            {/* 加号 */}
-            <View style={styles.plusContainer}>
-              <Text style={styles.plusText}>+</Text>
-            </View>
-            
-            {/* 特码 */}
-            <View style={styles.ballContainer}>
-              <View style={[styles.ball, getBallStyle(currentSettings.special.color), getBallBorderStyle(currentSettings.special.color)]}>
-                <Text style={styles.ballNumber}>{currentSettings.special.num}</Text>
-              </View>
-              <Text style={styles.animalText}>{currentSettings.special.animal}</Text>
-            </View>
-          </View>
+            );
+          })()}
         </View>
 
-        {/* 下期开奖信息 - 暂时隐藏 */}
-        {false && (
-          <View style={styles.nextDrawSection}>
-            <View style={styles.clockIcon}>
-              <Text style={styles.clockText}>🕐</Text>
-            </View>
-            <Text style={styles.nextDrawText}>
-              下期开奖: {currentSettings.nextDate}{' '}
-              <Text style={styles.nextPeriodText}>{displayPeriod}</Text>
-            </Text>
+        {/* 下期开奖信息 */}
+        <View style={styles.nextDrawSection}>
+          <View style={styles.clockIcon}>
+            <Text style={styles.clockText}>🕐</Text>
           </View>
-        )}
+          <Text style={styles.nextDrawText}>
+            下期开奖: {(() => {
+              const now = new Date();
+              const todayDraw = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DRAW_HOUR, DRAW_MINUTE);
+              const nextDate = now > todayDraw ? new Date(now.getTime() + 86400000) : now;
+              const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+              const day = String(nextDate.getDate()).padStart(2, '0');
+              const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+              const weekDay = weekDays[nextDate.getDay()];
+              return `${month}月${day}日(${weekDay})`;
+            })()}{' '}
+            <Text style={styles.nextPeriodText}>{nextPeriod}</Text>
+          </Text>
+        </View>
 
         {/* 预测列表 */}
         <View style={styles.predictionSection}>
@@ -657,10 +696,8 @@ export default function LotteryPage() {
             <View style={[styles.predictionCellView, styles.predictionResultCell]}>
               {currentIssue.visibility === 'locked' ? (
                 <Text style={[styles.pendingResultText, styles.lockedText]}>{currentIssue.display_result}</Text>
-              ) : currentIssue.visibility === 'visible' && currentIssue.display_result && currentIssue.display_result !== '特?00' ? (
-                renderPredictionResult(currentIssue.display_result)
               ) : (
-                <Text style={styles.pendingResultText}>{currentIssue.display_result}</Text>
+                renderPredictionResult(currentIssue)
               )}
             </View>
           </View>
@@ -681,7 +718,7 @@ export default function LotteryPage() {
                 {renderPredictionContent(item.display_content || '')}
               </View>
               <View style={[styles.predictionCellView, styles.predictionResultCell]}>
-                {renderPredictionResult(item.display_result || '')}
+                {renderPredictionResult(item)}
               </View>
             </View>
           ))}
@@ -1151,6 +1188,55 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 5,
   },
+  latestResultContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    width: '100%',
+  },
+  latestResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  latestResultLabel: {
+    fontSize: 14,
+    color: '#888',
+    marginRight: 8,
+  },
+  latestResultPeriod: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4a7cff',
+  },
+  latestResultContent: {
+    alignItems: 'center',
+  },
+  specialBallHighlight: {
+    backgroundColor: '#fff',
+    borderWidth: 3,
+  },
+  specialBallNum: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  specialAnimalLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#ff4444',
+    marginTop: 5,
+  },
+  plusSignText: {
+    fontSize: 20,
+    color: '#999',
+    fontWeight: '400',
+  },
+  latestResultPlaceholder: {
+    fontSize: 14,
+    color: '#999',
+    paddingVertical: 20,
+  },
   numbersRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1505,13 +1591,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   hitBadge: {
-    backgroundColor: '#ff0000',
-    color: '#fff',
-    fontSize: 10,
+    color: '#ff0000',
+    fontSize: 11,
     fontWeight: 'bold',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 3,
-    marginLeft: 4,
+    marginLeft: 3,
+  },
+  missBadge: {
+    fontSize: 11,
+    marginLeft: 3,
   },
 });
