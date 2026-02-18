@@ -402,6 +402,11 @@ export default function LotteryPage() {
             </View>
 
             <ScrollView style={styles.rulesContent} showsVerticalScrollIndicator={false}>
+              {/* 警示提醒 - 置顶显示 */}
+              <View style={[styles.rulesSection, styles.rulesTipSection]}>
+                <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测仅供参考娱乐，请理性对待，切勿沉迷，量力而行。</Text>
+              </View>
+
               {/* 开奖时间 */}
               <View style={styles.rulesSection}>
                 <Text style={styles.rulesSectionTitle}>⏰ 开奖时间</Text>
@@ -418,12 +423,12 @@ export default function LotteryPage() {
               </View>
 
               {/* 会员购买规则 */}
-              <View style={styles.rulesSection}>
+              <View style={[styles.rulesSection, styles.rulesFeaturedSection]}>
                 <Text style={styles.rulesSectionTitle}>👑 会员购买规则</Text>
-                <Text style={styles.rulesText}>• 购买“一期会员卡”后可查看当期最新预测内容</Text>
-                <Text style={styles.rulesText}>• 会员有效期至当天开奖时间（<Text style={styles.rulesHighlight}>{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : '整'}</Text>）</Text>
-                <Text style={styles.rulesText}>• 开奖后会员自动失效，需重新购买</Text>
-                <Text style={styles.rulesText}>• 开奖后购买则顺延至次日开奖时间</Text>
+                <Text style={styles.rulesText}>• 请联系客服获取兑换码；</Text>
+                <Text style={styles.rulesText}>• 登录平台可在预测内容点击【开通会员后查看】；</Text>
+                <Text style={styles.rulesText}>• 点击【开通会员后查看】进入兑换页面；</Text>
+                <Text style={styles.rulesText}>• 输入兑换码并点击兑换即可；</Text>
               </View>
 
               {/* 查看权限说明 */}
@@ -432,11 +437,6 @@ export default function LotteryPage() {
                 <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>会员用户</Text>：可查看当期最新预测 + 历史记录</Text>
                 <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>普通用户</Text>：可查看历史记录，最新预测需开通会员</Text>
                 <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>未登录</Text>：需先登录账号</Text>
-              </View>
-
-              {/* 温馨提示 */}
-              <View style={[styles.rulesSection, styles.rulesTipSection]}>
-                <Text style={styles.rulesTipText}>💡 温馨提示：预测仅供参考，请理性对待，切勿沉迷。</Text>
               </View>
             </ScrollView>
           </View>
