@@ -163,8 +163,16 @@ export default function MembershipPage() {
 
         {/* 兑换码输入 */}
         <View style={styles.redeemContainer}>
-          <Text style={styles.redeemTitle}>兑换码兑换</Text>
-          <Text style={styles.redeemSubtitle}>输入兑换码即可开通会员</Text>
+          <View style={styles.redeemHeaderRow}>
+            <View>
+              <Text style={styles.redeemTitle}>兑换码兑换</Text>
+              <Text style={styles.redeemSubtitle}>输入兑换码即可开通会员</Text>
+            </View>
+            <View style={styles.priceTagContainer}>
+              <Text style={styles.priceTagText}>一期套餐卡</Text>
+              <Text style={styles.priceTagAmount}>20元/期</Text>
+            </View>
+          </View>
           <View style={styles.redeemInputRow}>
             <TextInput
               style={styles.redeemInput}
@@ -192,14 +200,14 @@ export default function MembershipPage() {
 
         {/* 记录入口 */}
         <View style={styles.recordButtonsRow}>
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.recordButton}
             activeOpacity={0.7}
             onPress={() => router.push('/purchase-history')}
           >
             <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
             <Text style={styles.recordButtonText}>购买记录</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <TouchableOpacity
             style={styles.recordButton}
             activeOpacity={0.7}
@@ -213,11 +221,11 @@ export default function MembershipPage() {
         {/* 说明事项 */}
         <View style={styles.noticeContainer}>
           <Text style={styles.noticeTitle}>购买须知</Text>
-          <Text style={styles.noticeItem}>• 会员权益在支付成功后立即生效</Text>
-          <Text style={styles.noticeItem}>• 一期会员仅限当期使用，过期自动失效</Text>
-          <Text style={styles.noticeItem}>• 支持支付宝和微信支付</Text>
-          <Text style={styles.noticeItem}>• 虚拟商品一经购买，概不退换</Text>
-          <Text style={styles.noticeItem}>• 如有疑问请联系客服</Text>
+          <Text style={styles.noticeItem}>• 请联系客服获取兑换码；</Text>
+          <Text style={styles.noticeItem}>• 登录平台可在预测内容点击【开通会员后查看】；</Text>
+          <Text style={styles.noticeItem}>• 点击【开通会员后查看】进入兑换页面；</Text>
+          <Text style={styles.noticeItem}>• 输入兑换码并点击兑换即可；</Text>
+          <Text style={styles.noticeItemHighlight}>• 若当期付费用户未中奖，可联系客服获取下一期兑换码</Text>
         </View>
       </ScrollView>
 
@@ -376,6 +384,33 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
+  redeemHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  priceTagContainer: {
+    backgroundColor: '#FFF8E1',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFB800',
+  },
+  priceTagText: {
+    fontSize: 12,
+    color: '#FF9500',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  priceTagAmount: {
+    fontSize: 14,
+    color: '#FF6600',
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 2,
+  },
   redeemTitle: {
     fontSize: 16,
     fontWeight: '600',
@@ -385,7 +420,6 @@ const styles = StyleSheet.create({
   redeemSubtitle: {
     fontSize: 13,
     color: COLORS.textMuted,
-    marginBottom: 16,
   },
   redeemInputRow: {
     flexDirection: 'row',
@@ -435,5 +469,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: COLORS.textMuted,
     lineHeight: 22,
+  },
+  noticeItemHighlight: {
+    fontSize: 13,
+    color: '#FF6600',
+    lineHeight: 22,
+    fontWeight: '600',
   },
 });

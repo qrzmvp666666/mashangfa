@@ -360,7 +360,7 @@ export default function PersonalInfoPage() {
           <View style={styles.divider} />
 
           {/* Purchase History Row */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.row}
             onPress={() => router.push('/purchase-history')}
           >
@@ -370,7 +370,7 @@ export default function PersonalInfoPage() {
             </View>
           </TouchableOpacity>
 
-          <View style={styles.divider} />
+          <View style={styles.divider} /> */}
 
           {/* Redemption History Row */}
           <TouchableOpacity
