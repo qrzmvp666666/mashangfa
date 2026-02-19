@@ -79,17 +79,12 @@ export const AddToHomeScreen = () => {
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
     if (isStandalone) return;
 
-    const hasClosed = localStorage.getItem('hasClosedAddToHomeScreen_v4');
-    if (hasClosed) return;
-
     // @ts-ignore
     const userAgent = window.navigator.userAgent.toLowerCase();
     const isIosDevice = /iphone|ipad|ipod/.test(userAgent);
     setIsIOS(isIosDevice);
 
-    setTimeout(() => {
-      showPrompt();
-    }, 1500);
+    // 已移除自动弹出逻辑，仅在用户点击下载按钮时显示
   }, []);
 
   useEffect(() => {
