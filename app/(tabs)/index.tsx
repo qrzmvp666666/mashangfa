@@ -855,7 +855,7 @@ export default function LotteryPage() {
           </View>
           
           <View style={styles.countdownContainer}>
-            <Text style={styles.countdownLabel}>距离{DRAW_HOUR}点{DRAW_MINUTE > 0 ? `${DRAW_MINUTE}分` : ''}:</Text>
+            <Text style={styles.countdownLabel}>距下期:</Text>
             <Text style={styles.countdownTime}>{drawCountdown}</Text>
           </View>
           
