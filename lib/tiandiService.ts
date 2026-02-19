@@ -98,10 +98,14 @@ export async function fetchLatestLotteryResult(): Promise<LotteryResult | null> 
 
 /**
  * 订阅开奖结果变动
+ * @param onUpdate 更新回调
+ * @param channelName 可选的自定义 channel 名称，避免多个订阅冲突
  */
-export function subscribeToLotteryResults(onUpdate: () => void) {
+export function subscribeToLotteryResults(onUpdate: () => void, channelName?: string) {
+  const uniqueChannelName = channelName || `lottery_results_${Date.now()}_${Math.random()}`;
+  console.log('[tiandiService] Setting up lottery_results subscription:', uniqueChannelName);
   const channel = supabase
-    .channel('public:lottery_results')
+    .channel(uniqueChannelName)
     .on(
       'postgres_changes',
       {
@@ -110,13 +114,16 @@ export function subscribeToLotteryResults(onUpdate: () => void) {
         table: 'lottery_results'
       },
       (payload) => {
-        console.log('Lottery result update received!', payload);
+        console.log('[tiandiService] ✅ Lottery result update received!', payload);
         onUpdate();
       }
     )
-    .subscribe();
+    .subscribe((status) => {
+      console.log('[tiandiService] Lottery results subscription status:', status);
+    });
 
   return () => {
+    console.log('[tiandiService] Unsubscribing from lottery_results...');
     supabase.removeChannel(channel);
   };
 }

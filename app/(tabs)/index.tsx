@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal, Image, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,7 @@ import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData, fetchLatestLotteryResult, subscribeToLotteryResults, LotteryResult } from '../../lib/tiandiService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
 import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
+import { supabase } from '../../lib/supabase';
 
 // 公告横幅组件
 const ANNOUNCEMENTS = [
@@ -219,7 +220,7 @@ export default function LotteryPage() {
   const [drawCountdown, setDrawCountdown] = useState<string>('');
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
   const router = useRouter();
-  const { session, user, profile } = useAuth();
+  const { session, user, profile, refreshProfile } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
   const [lotteryResult, setLotteryResult] = useState<LotteryResult | null>(null);
@@ -246,36 +247,97 @@ export default function LotteryPage() {
   // 当前期期号
   const currentPeriod = currentIssue ? currentIssue.issue_no : '';
 
-  // 判断当前用户是否是会员（membership_expires_at > 现在）
-  const isVip = profile?.membership_expires_at 
-    ? new Date(profile.membership_expires_at) > new Date() 
-    : false;
+  // 使用 useMemo 响应式计算会员状态，当 profile 更新时自动重新计算
+  const isVip = useMemo(() => {
+    if (!profile?.membership_expires_at) {
+      console.log('[VIP Check] No membership_expires_at, profile:', profile ? 'exists' : 'null', 'isVip = false');
+      return false;
+    }
+    const expiresAt = new Date(profile.membership_expires_at);
+    const now = new Date();
+    const isValid = expiresAt > now;
+    console.log('[VIP Check] membership_expires_at:', profile.membership_expires_at, 'isVip:', isValid);
+    return isValid;
+  }, [profile?.membership_expires_at]);
+
+  // 页面加载时获取用户 profile
+  useEffect(() => {
+    if (user && !profile) {
+      console.log('[Home] User logged in, fetching profile...');
+      refreshProfile();
+    }
+  }, [user, profile]);
+
+  // 订阅 users 表变化，实时更新会员状态
+  useEffect(() => {
+    if (!user) return;
+
+    console.log('[Home] Setting up users table subscription for user:', user.id);
+    const channel = supabase
+      .channel(`user_profile_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `auth_user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('[Home] 🔄 User profile updated:', payload.new);
+          refreshProfile();
+        }
+      )
+      .subscribe((status) => {
+        console.log('[Home] Users subscription status:', status);
+      });
+
+    return () => {
+      console.log('[Home] Unsubscribing from users table...');
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   useEffect(() => {
     // 拉取数据并订阅
     const loadData = async () => {
-      console.log('Fetching Tiandi Specials...');
+      console.log('[Home] Fetching Tiandi Specials...');
       const data = await fetchTiandiSpecials();
-      console.log('Tiandi Data fetched:', data.length);
+      console.log('[Home] Tiandi Data fetched:', data.length);
       setTiandiData(data);
       setTiandiLoading(false);
     };
     
     loadData();
     
-    // 订阅变动
-    const unsubscribe = subscribeToTiandiSpecials(loadData);
+    // 订阅 featured_tiandi_specials 表变动
+    const unsubscribe = subscribeToTiandiSpecials(() => {
+      console.log('[Home] 🔄 Tiandi Specials changed, reloading...');
+      loadData();
+    });
+
+    // 订阅 lottery_results 表变动（因为 tiandiData 包含 JOIN 自 lottery_results 的数据）
+    const unsubscribeLotteryForTiandi = subscribeToLotteryResults(() => {
+      console.log('[Home] 🔄 Lottery Results changed (for Tiandi), reloading Tiandi data...');
+      loadData();
+    }, 'lottery_results_for_tiandi');
 
     // 独立拉取最新开奖结果并订阅
     const loadLotteryData = async () => {
+      console.log('[Home] Fetching Latest Lottery Result...');
       const result = await fetchLatestLotteryResult();
+      console.log('[Home] Lottery Result fetched:', result);
       setLotteryResult(result);
     };
     loadLotteryData();
-    const unsubscribeLottery = subscribeToLotteryResults(loadLotteryData);
+    const unsubscribeLottery = subscribeToLotteryResults(() => {
+      console.log('[Home] 🔄 Lottery Results changed (for Latest), reloading Latest result...');
+      loadLotteryData();
+    }, 'lottery_results_for_latest');
     
     return () => {
       unsubscribe();
+      unsubscribeLotteryForTiandi();
       unsubscribeLottery();
     };
   }, [session, user]);
