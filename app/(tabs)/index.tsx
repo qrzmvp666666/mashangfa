@@ -13,6 +13,185 @@ import { getPlatformConfig } from '../../lib/platformConfigService';
 import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
 import { supabase } from '../../lib/supabase';
 
+// 呼吸边框组件
+const BreathingBorder: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const borderOpacity = useRef(new Animated.Value(0.3)).current;
+  const borderWidth = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const breathe = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(borderOpacity, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: false,
+          }),
+          Animated.timing(borderOpacity, {
+            toValue: 0.3,
+            duration: 1200,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(borderWidth, {
+            toValue: 3,
+            duration: 1200,
+            useNativeDriver: false,
+          }),
+          Animated.timing(borderWidth, {
+            toValue: 1,
+            duration: 1200,
+            useNativeDriver: false,
+          }),
+        ]),
+      ])
+    );
+    breathe.start();
+    return () => {
+      breathe.stop();
+    };
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        styles.breathingBorderContainer,
+        {
+          borderColor: borderOpacity.interpolate({
+            inputRange: [0.3, 1],
+            outputRange: ['rgba(106, 168, 255, 0.3)', 'rgba(106, 168, 255, 1)'],
+          }),
+          borderWidth: borderWidth,
+          shadowOpacity: borderOpacity.interpolate({
+            inputRange: [0.3, 1],
+            outputRange: [0.1, 0.5],
+          }),
+        },
+      ]}
+    >
+      {children}
+    </Animated.View>
+  );
+};
+
+// 脉动按钮组件
+const PulseButton: React.FC<{ onPress: () => void; text: string }> = ({ onPress, text }) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const opacityAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(scaleAnim, {
+            toValue: 1.08,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scaleAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(opacityAnim, {
+            toValue: 0.7,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacityAnim, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+      ])
+    );
+    pulse.start();
+    return () => {
+      pulse.stop();
+    };
+  }, []);
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }], opacity: opacityAnim }}>
+      <TouchableOpacity onPress={onPress} style={styles.pulseButton}>
+        <Text style={styles.pulseButtonText}>{text}</Text>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// 付费用户模拟数据
+const PAID_USERS = [
+  { name: '13812345678', time: '刚刚' },
+  { name: 'zhangsan888', time: '1分钟前' },
+  { name: '15987654321', time: '2分钟前' },
+  { name: 'lihua2024', time: '3分钟前' },
+  { name: '18666668888', time: '5分钟前' },
+  { name: 'wangwu666', time: '6分钟前' },
+  { name: '17799998888', time: '8分钟前' },
+  { name: 'xiaoming2024', time: '10分钟前' },
+  { name: '13955556666', time: '12分钟前' },
+  { name: 'chen888888', time: '15分钟前' },
+];
+
+// 脱敏处理函数
+const maskName = (name: string) => {
+  if (name.includes('@')) {
+    // 邮箱
+    const [local, domain] = name.split('@');
+    const maskedLocal = local.slice(0, 2) + '****';
+    return `${maskedLocal}@${domain}`;
+  } else if (/^\d{11}$/.test(name)) {
+    // 手机号
+    return name.slice(0, 3) + '****' + name.slice(7);
+  } else {
+    // 用户名
+    if (name.length <= 2) return name + '****';
+    return name.slice(0, 2) + '****';
+  }
+};
+
+// 付费用户轮播组件
+const PaidUsersMarquee: React.FC = () => {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        setCurrentIndex((prev) => (prev + 1) % PAID_USERS.length);
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      });
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const user = PAID_USERS[currentIndex];
+
+  return (
+    <View style={styles.paidUsersContainer}>
+      <Animated.Text style={[styles.paidUsersText, { opacity: fadeAnim }]}>
+        <Text style={styles.paidUsersName}>{maskName(user.name)}</Text>
+        <Text style={styles.paidUsersAction}> 已成功付费兑换 </Text>
+        <Text style={styles.paidUsersTime}>{user.time}</Text>
+      </Animated.Text>
+    </View>
+  );
+};
+
 // 公告横幅组件
 const ANNOUNCEMENTS = [
   '🎉 有奖竞猜活动火热进行中！',
@@ -207,7 +386,7 @@ const renderPredictionResult = (item: TiandiSpecial) => {
         特<Text style={styles.resultAnimal}>{item.special_animal}</Text>
         <Text style={styles.resultNumber}>{numStr}</Text>
       </Text>
-      {item.is_correct === true  && <Text style={styles.hitBadge}>✅中</Text>}
+      {item.is_correct === true  && <Text style={styles.hitBadge}>✅</Text>}
       {item.is_correct === false && <Text style={styles.missBadge}>❌</Text>}
     </View>
   );
@@ -452,11 +631,6 @@ export default function LotteryPage() {
 
           <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
             <View style={styles.headerProfileContainer}>
-            {session && (
-              <View style={styles.headerVipBadge}>
-                <Text style={styles.headerVipText}>VIP</Text>
-              </View>
-            )}
             <Ionicons name="person-circle-outline" size={28} color="#fff" />
             </View>
           </TouchableOpacity>
@@ -701,32 +875,63 @@ export default function LotteryPage() {
           })()}
         </View>
 
-        {/* 下期开奖信息 */}
-        <View style={styles.nextDrawSection}>
-          <View style={styles.clockIcon}>
-            <Text style={styles.clockText}>🕐</Text>
+        {/* 本期开奖信息和推荐参考 - 整体边框包裹 */}
+        <BreathingBorder>
+          {/* 本期开奖信息 */}
+          <View style={styles.nextDrawSection}>
+            <View style={styles.clockIcon}>
+              <Text style={styles.clockText}>🕐</Text>
+            </View>
+            <Text style={styles.nextDrawText}>
+              本期开奖: {(() => {
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+                const weekDay = weekDays[now.getDay()];
+                return `${month}月${day}日(${weekDay})`;
+              })()}
+            </Text>
           </View>
-          <Text style={styles.nextDrawText}>
-            本期开奖: {(() => {
-              const now = new Date();
-              const month = String(now.getMonth() + 1).padStart(2, '0');
-              const day = String(now.getDate()).padStart(2, '0');
-              const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-              const weekDay = weekDays[now.getDay()];
-              return `${month}月${day}日(${weekDay})`;
-            })()}{' '}
-            <Text style={styles.nextPeriodText}>{currentPeriod}</Text>
-          </Text>
-        </View>
+
+          {/* 最新期数推荐参考 */}
+          {currentIssue && (
+            <View style={styles.latestRecommendationSection}>
+              <View style={styles.latestRecommendationLeft}>
+                <Text style={styles.latestRecommendationPeriod}>{currentIssue.issue_no}</Text>
+              </View>
+              <View style={styles.latestRecommendationCenter}>
+                {!session ? (
+                  <PulseButton onPress={() => router.push('/login')} text="付费可查看" />
+                ) : isVip ? (
+                  currentIssue.prediction_content ? (
+                    <View style={styles.latestRecommendationTextContainer}>
+                      {renderPredictionContent(currentIssue.prediction_content)}
+                    </View>
+                  ) : (
+                    <Text style={styles.latestRecommendationPendingText}>
+                      {PREDICTION_HOUR}点{PREDICTION_MINUTE > 0 ? `${PREDICTION_MINUTE}分` : ''}后更新
+                    </Text>
+                  )
+                ) : (
+                  <PulseButton onPress={() => router.push('/membership')} text="付费可查看" />
+                )}
+              </View>
+              <View style={styles.latestRecommendationRight}>
+                <Text style={styles.latestRecommendationLabel}>推荐参考</Text>
+              </View>
+            </View>
+          )}
+        </BreathingBorder>
+
+        {/* 付费用户轮播 */}
+        <PaidUsersMarquee />
 
         {/* 预测列表 */}
         <View style={styles.predictionSection}>
-          {/* 标题 + 倒计时标签 */}
+          {/* 标题 */}
           <View style={styles.predictionHeader}>
             <Text style={styles.predictionTitle}>精准天地中特</Text>
-            <View style={styles.predictionCountdownTag}>
-              <Text style={styles.predictionCountdownTagText}>距{PREDICTION_HOUR}点:{predictionCountdown}</Text>
-            </View>
           </View>
 
           {/* 天肖地肖说明 */}
@@ -1391,15 +1596,26 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0e0e0',
     marginVertical: 15,
   },
+  breathingBorderContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 5,
+    marginTop: 10,
+    borderRadius: 8,
+    paddingHorizontal: 15,
+    paddingBottom: 10,
+    shadowColor: '#6aa8ff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowRadius: 10,
+    elevation: 5,
+  },
   nextDrawSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 5,
+    paddingTop: 10,
     paddingBottom: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-    marginTop: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   clockIcon: {
     marginRight: 8,
@@ -1415,6 +1631,104 @@ const styles = StyleSheet.create({
     color: '#ff4444',
     fontWeight: 'bold',
   },
+  // 最新期数推荐参考样式
+  latestRecommendationSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 5,
+  },
+  latestRecommendationLeft: {
+    width: '25%',
+    alignItems: 'flex-start',
+  },
+  latestRecommendationCenter: {
+    width: '50%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  latestRecommendationRight: {
+    width: '25%',
+    alignItems: 'flex-end',
+  },
+  latestRecommendationPeriod: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#ff4444',
+  },
+  latestRecommendationLabel: {
+    fontSize: 13,
+    color: '#666',
+  },
+  latestRecommendationLoginBtn: {
+    backgroundColor: '#ff6600',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 15,
+    shadowColor: '#ff6600',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  latestRecommendationLoginText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  latestRecommendationTextContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  latestRecommendationPendingText: {
+    fontSize: 13,
+    color: '#999',
+    fontWeight: '500',
+  },
+  // 付费用户轮播样式
+  paidUsersContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 5,
+    marginTop: 5,
+    marginBottom: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  paidUsersText: {
+    fontSize: 11,
+    color: '#999',
+  },
+  paidUsersName: {
+    color: '#ff6600',
+    fontWeight: 'bold',
+  },
+  paidUsersAction: {
+    color: '#666',
+  },
+  paidUsersTime: {
+    color: '#999',
+    fontSize: 12,
+  },
+  pulseButton: {
+    backgroundColor: '#ff6600',
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 15,
+    shadowColor: '#ff6600',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  pulseButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   // 预测列表样式
   predictionSection: {
     marginTop: 20,
@@ -1426,10 +1740,10 @@ const styles = StyleSheet.create({
   },
   predictionHeader: {
     backgroundColor: '#4a7cff',
-    paddingVertical: 12,
+    paddingVertical: 15,
     paddingHorizontal: 15,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
   },
