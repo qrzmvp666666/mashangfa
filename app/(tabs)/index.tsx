@@ -573,7 +573,7 @@ export default function LotteryPage() {
           <View style={styles.periodRow}>
             <Text style={styles.periodLabel}>新澳门彩</Text>
             <Text style={styles.periodNumber}>
-              {currentPeriod || latestResultPeriod || ''}
+              {latestResultPeriod || currentPeriod || ''}
             </Text>
           </View>
           
