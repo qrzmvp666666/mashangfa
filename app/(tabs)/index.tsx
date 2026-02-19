@@ -124,18 +124,59 @@ const PulseButton: React.FC<{ onPress: () => void; text: string }> = ({ onPress,
   );
 };
 
-// 付费用户模拟数据
+// 付费用户模拟数据（50条）
 const PAID_USERS = [
-  { name: '13812345678', time: '刚刚' },
-  { name: 'zhangsan888', time: '1分钟前' },
-  { name: '15987654321', time: '2分钟前' },
+  { name: '13847291563', time: '刚刚' },
+  { name: 'zhangsan2024', time: '1分钟前' },
+  { name: '15938472615', time: '2分钟前' },
   { name: 'lihua2024', time: '3分钟前' },
-  { name: '18666668888', time: '5分钟前' },
-  { name: 'wangwu666', time: '6分钟前' },
-  { name: '17799998888', time: '8分钟前' },
+  { name: '18694725381', time: '5分钟前' },
+  { name: 'wangwu2024', time: '6分钟前' },
+  { name: '17758291473', time: '8分钟前' },
   { name: 'xiaoming2024', time: '10分钟前' },
-  { name: '13955556666', time: '12分钟前' },
-  { name: 'chen888888', time: '15分钟前' },
+  { name: '13926184735', time: '12分钟前' },
+  { name: 'chen2024', time: '15分钟前' },
+  { name: '13573948261', time: '18分钟前' },
+  { name: 'laoliu2024', time: '20分钟前' },
+  { name: '18819472836', time: '22分钟前' },
+  { name: 'sunqi2024', time: '25分钟前' },
+  { name: '13658391742', time: '28分钟前' },
+  { name: 'zhouba2024', time: '30分钟前' },
+  { name: '15092746183', time: '32分钟前' },
+  { name: 'wujiu2024', time: '35分钟前' },
+  { name: '13746192835', time: '38分钟前' },
+  { name: 'zhengshi2024', time: '40分钟前' },
+  { name: '15183927461', time: '42分钟前' },
+  { name: 'dongfang2024', time: '45分钟前' },
+  { name: '15267491823', time: '48分钟前' },
+  { name: 'ximen2024', time: '50分钟前' },
+  { name: '15329184756', time: '52分钟前' },
+  { name: 'nangua2024', time: '55分钟前' },
+  { name: '15584736291', time: '58分钟前' },
+  { name: 'beifang2024', time: '1小时前' },
+  { name: '15646382917', time: '1小时前' },
+  { name: 'zhongnan2024', time: '1小时前' },
+  { name: '15791827364', time: '1小时前' },
+  { name: 'huabei2024', time: '2小时前' },
+  { name: '15853629184', time: '2小时前' },
+  { name: 'dongbei2024', time: '2小时前' },
+  { name: '15918273645', time: '2小时前' },
+  { name: 'huazhong2024', time: '3小时前' },
+  { name: '13064738291', time: '3小时前' },
+  { name: 'huanan2024', time: '3小时前' },
+  { name: '13192836471', time: '4小时前' },
+  { name: 'xibei2024', time: '4小时前' },
+  { name: '13247582916', time: '4小时前' },
+  { name: 'xinjiang2024', time: '5小时前' },
+  { name: '13383927164', time: '5小时前' },
+  { name: 'xizang2024', time: '5小时前' },
+  { name: '13456291837', time: '6小时前' },
+  { name: 'yunnan2024', time: '6小时前' },
+  { name: '13574829163', time: '6小时前' },
+  { name: 'guizhou2024', time: '7小时前' },
+  { name: '13629184735', time: '7小时前' },
+  { name: 'sichuan2024', time: '7小时前' },
+  { name: '13758291634', time: '8小时前' },
 ];
 
 // 脱敏处理函数
@@ -185,8 +226,7 @@ const PaidUsersMarquee: React.FC = () => {
     <View style={styles.paidUsersContainer}>
       <Animated.Text style={[styles.paidUsersText, { opacity: fadeAnim }]}>
         <Text style={styles.paidUsersName}>{maskName(user.name)}</Text>
-        <Text style={styles.paidUsersAction}> 已成功付费兑换 </Text>
-        <Text style={styles.paidUsersTime}>{user.time}</Text>
+        <Text style={styles.paidUsersAction}> 已成功付费兑换</Text>
       </Animated.Text>
     </View>
   );
@@ -663,7 +703,8 @@ export default function LotteryPage() {
             <ScrollView style={styles.rulesContent} showsVerticalScrollIndicator={false}>
               {/* 平台介绍 */}
               <View style={[styles.rulesSection, styles.rulesIntroSection]}>
-                <Text style={styles.rulesIntroText}>心水天地生肖凭借多年行业经验和丰富数据积累，为广大竞猜者提供权威、实时、专业的参考资料，汇聚资深分析师们深度解读和汇总后选择可靠的心水资料，即刻提升你的竞猜准确率。专业成就非凡，实力助你赢在起跑线上！友情提示：坚持就是胜利！</Text>
+                <Text style={styles.rulesIntroText}>心水天地生肖凭借多年行业经验和丰富数据积累，为广大竞猜者提供权威、实时、专业的参考资料，汇聚资深分析师们深度解读和汇总后选择可靠的心水资料，即刻提升你的竞猜准确率。专业成就非凡，实力助你赢在起跑线上！</Text>
+                <Text style={styles.rulesIntroTip}>友情提示：坚持就是胜利！</Text>
               </View>
 
               {/* 警示提醒 - 置顶显示 */}
@@ -692,7 +733,7 @@ export default function LotteryPage() {
                 <Text style={styles.rulesText}>• 登录平台可在预测内容点击【开通会员后查看】；</Text>
                 <Text style={styles.rulesText}>• 点击【开通会员后查看】进入兑换页面；</Text>
                 <Text style={styles.rulesText}>• 输入兑换码并点击兑换即可；</Text>
-                <Text style={styles.rulesText}><Text style={styles.rulesHighlight}>• 若当期付费用户未中奖，可联系客服免费领取下一期兑换码</Text></Text>
+                <Text style={styles.rulesText}><Text style={styles.rulesHighlight}>• 若当期付费用户未猜中，可联系客服免费领取下一期兑换码</Text></Text>
               </View>
             </ScrollView>
           </View>
@@ -914,9 +955,7 @@ export default function LotteryPage() {
                   <PulseButton onPress={() => router.push('/membership')} text="付费可查看" />
                 )}
               </View>
-              <View style={styles.latestRecommendationRight}>
-                <Text style={styles.latestRecommendationLabel}>推荐参考</Text>
-              </View>
+
             </View>
           )}
         </BreathingBorder>
@@ -1165,6 +1204,14 @@ const styles = StyleSheet.create({
     color: '#4a7cff',
     lineHeight: 20,
     textAlign: 'left',
+  },
+  rulesIntroTip: {
+    fontSize: 13,
+    color: '#ff6600',
+    lineHeight: 20,
+    textAlign: 'left',
+    marginTop: 8,
+    fontWeight: 'bold',
   },
   rulesSectionTitle: {
     fontSize: 15,
@@ -1647,7 +1694,8 @@ const styles = StyleSheet.create({
   },
   latestRecommendationLeft: {
     width: '25%',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   latestRecommendationCenter: {
     width: '50%',
