@@ -661,6 +661,11 @@ export default function LotteryPage() {
             </View>
 
             <ScrollView style={styles.rulesContent} showsVerticalScrollIndicator={false}>
+              {/* 平台介绍 */}
+              <View style={[styles.rulesSection, styles.rulesIntroSection]}>
+                <Text style={styles.rulesIntroText}>心水天地生肖凭借多年行业经验和丰富数据积累，为广大竞猜者提供权威、实时、专业的参考资料，汇聚资深分析师们深度解读和汇总后选择可靠的心水资料，即刻提升你的竞猜准确率。专业成就非凡，实力助你赢在起跑线上！友情提示：坚持就是胜利！</Text>
+              </View>
+
               {/* 警示提醒 - 置顶显示 */}
               <View style={[styles.rulesSection, styles.rulesTipSection]}>
                 <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测资料仅供参考娱乐，请理性对待，切勿赌博，量力而行。</Text>
@@ -1159,6 +1164,19 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ffe0b2',
+  },
+  rulesIntroSection: {
+    backgroundColor: '#f0f8ff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#b3d9ff',
+  },
+  rulesIntroText: {
+    fontSize: 13,
+    color: '#4a7cff',
+    lineHeight: 20,
+    textAlign: 'left',
   },
   rulesSectionTitle: {
     fontSize: 15,
