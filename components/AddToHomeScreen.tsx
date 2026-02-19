@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform, Modal, ScrollView, Dimensions, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from '../lib/i18n';
+import { useAddToHomeScreen } from '../contexts/AddToHomeScreenContext';
 
 const { width } = Dimensions.get('window');
 
@@ -14,8 +15,9 @@ interface Step {
 
 export const AddToHomeScreen = () => {
   const { t } = useTranslation();
-  const [isVisible, setIsVisible] = useState(false);
+  const { isVisible, showPrompt, hidePrompt, isInstallable, setInstallable } = useAddToHomeScreen();
   const [isIOS, setIsIOS] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
@@ -86,14 +88,25 @@ export const AddToHomeScreen = () => {
     setIsIOS(isIosDevice);
 
     setTimeout(() => {
-      setIsVisible(true);
+      showPrompt();
+    }, 1500);
+  }, []);
+
+  useEffect(() => {
+    if (isVisible) {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 300,
         useNativeDriver: true,
       }).start();
-    }, 1500);
-  }, []);
+    } else {
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [isVisible]);
 
   const handleClose = () => {
     Animated.timing(fadeAnim, {
@@ -101,7 +114,7 @@ export const AddToHomeScreen = () => {
       duration: 200,
       useNativeDriver: true,
     }).start(() => {
-      setIsVisible(false);
+      hidePrompt();
       if (dontShowAgain) {
         localStorage.setItem('hasClosedAddToHomeScreen_v4', 'true');
       }
@@ -178,7 +191,7 @@ export const AddToHomeScreen = () => {
               {steps.map((step, index) => (
                 <View key={index} style={styles.stepContainer}>
                   <View style={styles.iconWrapper}>
-                    <Ionicons name={step.icon as any} size={48} color="#2ebd85" />
+                    <Ionicons name={step.icon as any} size={48} color="#4a7cff" />
                   </View>
                   
                   <Text style={styles.stepTitle}>{step.title}</Text>
@@ -228,7 +241,7 @@ export const AddToHomeScreen = () => {
               <Ionicons
                 name={dontShowAgain ? "checkbox" : "square-outline"}
                 size={18}
-                color={dontShowAgain ? "#2ebd85" : "#9ca3af"}
+                color={dontShowAgain ? "#4a7cff" : "#9ca3af"}
               />
               <Text style={styles.checkboxText}>{t('addToHomeScreen.dontShowAgain')}</Text>
             </TouchableOpacity>
@@ -242,7 +255,7 @@ export const AddToHomeScreen = () => {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -259,16 +272,14 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   modalContent: {
-    backgroundColor: '#1c1c1e',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.6,
-    shadowRadius: 20,
-    elevation: 15,
-    borderWidth: 1,
-    borderColor: '#27272a',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
   },
   closeBtn: {
     position: 'absolute',
@@ -290,22 +301,22 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: 'rgba(46, 189, 133, 0.1)',
+    backgroundColor: 'rgba(74, 124, 255, 0.1)',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   stepTitle: {
-    color: '#ffffff',
+    color: '#333333',
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 8,
     textAlign: 'center',
   },
   stepDescription: {
-    color: '#9ca3af',
-    fontSize: 13,
-    lineHeight: 18,
+    color: '#666666',
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: 'center',
     paddingHorizontal: 4,
   },
@@ -314,7 +325,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   illustrationText: {
-    color: '#2ebd85',
+    color: '#4a7cff',
     fontSize: 12,
     marginTop: 6,
     fontWeight: '600',
@@ -330,11 +341,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#3f3f46',
+    backgroundColor: '#e5e7eb',
     marginHorizontal: 4,
   },
   indicatorActive: {
-    backgroundColor: '#2ebd85',
+    backgroundColor: '#4a7cff',
     width: 24,
   },
   buttonContainer: {
@@ -344,7 +355,7 @@ const styles = StyleSheet.create({
   },
   btnPrimary: {
     flex: 1,
-    backgroundColor: '#2ebd85',
+    backgroundColor: '#4a7cff',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
@@ -359,15 +370,15 @@ const styles = StyleSheet.create({
   },
   btnSecondary: {
     flex: 1,
-    backgroundColor: '#27272a',
+    backgroundColor: '#f3f4f6',
     paddingVertical: 12,
     borderRadius: 10,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#3f3f46',
+    borderColor: '#e5e7eb',
   },
   btnSecondaryText: {
-    color: '#ffffff',
+    color: '#4b5563',
     fontSize: 15,
     fontWeight: '600',
   },

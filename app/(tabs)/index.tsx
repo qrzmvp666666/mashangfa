@@ -10,6 +10,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData, fetchLatestLotteryResult, subscribeToLotteryResults, LotteryResult } from '../../lib/tiandiService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
+import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
 
 // 公告横幅组件
 const ANNOUNCEMENTS = [
@@ -218,6 +219,7 @@ const renderPredictionResult = (item: TiandiSpecial) => {
 };
 
 export default function LotteryPage() {
+  const { showPrompt } = useAddToHomeScreen();
   const [activeTab, setActiveTab] = useState<LotteryType>('macau');
   const [drawCountdown, setDrawCountdown] = useState<string>('');
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
@@ -383,20 +385,33 @@ export default function LotteryPage() {
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>码上发（mashangfa.com）</Text>
         </View>
-        <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
-          <View style={styles.headerProfileContainer}>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          {Platform.OS === 'web' && (
+            <TouchableOpacity onPress={showPrompt} style={{ marginRight: 15 }}>
+              <Ionicons name="download-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
+            <View style={styles.headerProfileContainer}>
             {session && currentIssue && currentIssue.visibility === 'visible' && (
               <View style={styles.headerVipBadge}>
                 <Text style={styles.headerVipText}>VIP</Text>
               </View>
             )}
             <Ionicons name="person-circle-outline" size={28} color="#fff" />
-          </View>
-        </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </View>
       </LinearGradient>
 
       {/* 公告横幅 */}
       <AnnouncementBanner onShowRules={() => setRulesVisible(true)} />
+
+
+
+
 
       {/* 规则弹窗 */}
       <Modal
@@ -1630,5 +1645,24 @@ const styles = StyleSheet.create({
   missBadge: {
     fontSize: 11,
     marginLeft: 3,
+  },
+  downloadButton: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    marginTop: 10,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  downloadButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  downloadButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
+    marginLeft: 6,
   },
 });

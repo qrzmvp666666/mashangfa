@@ -11,6 +11,7 @@ import { useProtectedRoute } from '../../hooks/useProtectedRoute';
 import { updateAvatarComplete } from '../../lib/avatarService';
 import { isVipActive } from '../../lib/redemptionService';
 import { useTranslation } from '../../lib/i18n';
+import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
 
 const COLORS = {
   backgroundDark: "#f5f5f5",
@@ -28,6 +29,7 @@ export default function PersonalInfoPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const router = useRouter();
   const { t } = useTranslation();
+  const { showPrompt } = useAddToHomeScreen();
 
   // 页面加载时获取用户资料
   useEffect(() => {
@@ -404,6 +406,20 @@ export default function PersonalInfoPage() {
                   <MaterialIcons name="qr-code-2" size={24} color={COLORS.textSubDark} style={{ marginRight: 4 }} />
                   <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
                 </View>
+              <View style={styles.divider} />
+              
+              {Platform.OS === 'web' && (
+                <>
+                  <TouchableOpacity style={styles.row} onPress={showPrompt}>
+                    <Text style={styles.label}>{t('addToHomeScreen.installApp') || '安装应用'}</Text>
+                    <View style={styles.rowRight}>
+                      <Ionicons name="download-outline" size={20} color={COLORS.textSubDark} />
+                      <Ionicons name="chevron-forward" size={20} color={COLORS.textSubDark} />
+                    </View>
+                  </TouchableOpacity>
+                  <View style={styles.divider} />
+                </>
+              )}
               </TouchableOpacity>
             </>
           )}
