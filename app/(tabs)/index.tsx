@@ -668,7 +668,7 @@ export default function LotteryPage() {
 
               {/* 警示提醒 - 置顶显示 */}
               <View style={[styles.rulesSection, styles.rulesTipSection]}>
-                <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测资料仅供参考娱乐，请理性对待，切勿赌博，免费领取。</Text>
+                <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测资料仅供参考娱乐，请理性对待，切勿赌博。</Text>
               </View>
 
               {/* 开奖时间 */}
@@ -692,7 +692,7 @@ export default function LotteryPage() {
                 <Text style={styles.rulesText}>• 登录平台可在预测内容点击【开通会员后查看】；</Text>
                 <Text style={styles.rulesText}>• 点击【开通会员后查看】进入兑换页面；</Text>
                 <Text style={styles.rulesText}>• 输入兑换码并点击兑换即可；</Text>
-                <Text style={styles.rulesText}><Text style={styles.rulesHighlight}>• 若当期付费用户未中奖，可联系客服获取下一期兑换码</Text></Text>
+                <Text style={styles.rulesText}><Text style={styles.rulesHighlight}>• 若当期付费用户未中奖，可联系客服免费领取下一期兑换码</Text></Text>
               </View>
 
               {/* 查看权限说明 */}
