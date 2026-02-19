@@ -219,7 +219,7 @@ export default function LotteryPage() {
   const [drawCountdown, setDrawCountdown] = useState<string>('');
   const [predictionCountdown, setPredictionCountdown] = useState<string>('');
   const router = useRouter();
-  const { session, user } = useAuth();
+  const { session, user, profile } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
   const [lotteryResult, setLotteryResult] = useState<LotteryResult | null>(null);
@@ -245,6 +245,11 @@ export default function LotteryPage() {
 
   // 当前期期号
   const currentPeriod = currentIssue ? currentIssue.issue_no : '';
+
+  // 判断当前用户是否是会员（membership_expires_at > 现在）
+  const isVip = profile?.membership_expires_at 
+    ? new Date(profile.membership_expires_at) > new Date() 
+    : false;
 
   useEffect(() => {
     // 拉取数据并订阅
@@ -688,12 +693,29 @@ export default function LotteryPage() {
               {currentIssue.issue_no}
             </Text>
             <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-              {currentIssue.prediction_content ? (
-                <View style={styles.predictionContentContainer}>
-                  {renderPredictionContent(currentIssue.prediction_content)}
-                </View>
+              {!session ? (
+                // 未登录：显示"付费可查看"按钮
+                <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
+                  <Text style={styles.loginPromptText}>付费可查看</Text>
+                </TouchableOpacity>
+              ) : isVip ? (
+                // 已登录且是会员
+                currentIssue.prediction_content ? (
+                  // 内容不为空：显示预测内容
+                  <View style={styles.predictionContentContainer}>
+                    {renderPredictionContent(currentIssue.prediction_content)}
+                  </View>
+                ) : (
+                  // 内容为空：显示"XX点后更新"
+                  <Text style={[styles.predictionContentText, styles.lockedText]}>
+                    {PREDICTION_HOUR}点{PREDICTION_MINUTE > 0 ? `${PREDICTION_MINUTE}分` : ''}后更新
+                  </Text>
+                )
               ) : (
-                <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
+                // 已登录但不是会员：显示"付费可查看"按钮
+                <TouchableOpacity onPress={() => router.push('/membership')} style={styles.loginPromptContainer}>
+                  <Text style={styles.loginPromptText}>付费可查看</Text>
+                </TouchableOpacity>
               )}
             </View>
             <View style={[styles.predictionCellView, styles.predictionResultCell]}>
