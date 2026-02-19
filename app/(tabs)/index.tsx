@@ -193,27 +193,22 @@ const renderPredictionContent = (content: string) => {
   );
 };
 
-// 渲染预测结果：显示开奖特码 + 命中/未中标识
+// 渲染预测结果：直接使用 JOIN 后的 special_animal / special_num
 const renderPredictionResult = (item: TiandiSpecial) => {
-  const result = item.display_result;
-  const match = result.match(/特([\u4e00-\u9fa5]+)(\d+)/);
-  
-  if (!match) {
-    // 无开奖结果（待开奖）
-    return <Text style={styles.pendingResultText}>{result}</Text>;
+  if (item.special_num === null || item.special_num === undefined) {
+    return <Text style={styles.pendingResultText}>待开奖</Text>;
   }
-  
-  const [, animal, number] = match;
-  const isCorrect = item.is_correct;
-  
+
+  const numStr = String(item.special_num).padStart(2, '0');
+
   return (
     <View style={styles.resultContainer}>
       <Text style={styles.predictionResultText}>
-        特<Text style={styles.resultAnimal}>{animal}</Text>
-        <Text style={styles.resultNumber}>{number}</Text>
+        特<Text style={styles.resultAnimal}>{item.special_animal}</Text>
+        <Text style={styles.resultNumber}>{numStr}</Text>
       </Text>
-      {isCorrect === true && <Text style={styles.hitBadge}>✅中</Text>}
-      {isCorrect === false && <Text style={styles.missBadge}>❌</Text>}
+      {item.is_correct === true  && <Text style={styles.hitBadge}>✅中</Text>}
+      {item.is_correct === false && <Text style={styles.missBadge}>❌</Text>}
     </View>
   );
 };
@@ -240,24 +235,16 @@ export default function LotteryPage() {
   const [qrModalType, setQrModalType] = useState<'customer' | 'group' | null>(null);
 
   const currentSettings = LOTTERY_DATA[activeTab];
-  // 当前期（后端标记 is_current=true 的记录）
+  // 当前期：draw_date === 今天（is_current=true 由后端计算）
   const currentIssue = tiandiData.find(item => item.is_current) || null;
-  // 历史数据
+  // 历史数据：其余期数
   const historyItems = tiandiData.filter(item => !item.is_current);
-  
-  // 从开奖结果中取最新一条，计算"下期"期号
-  // 直接使用 lotteryResult，不进行降级（遵循用户意图：独立接口优先，无则显示等待）
+
+  // 从开奖结果中取最新一条
   const latestResultPeriod = lotteryResult ? lotteryResult.issue_no : null;
-  
-  // 下期期号：从开奖结果最新期号 +1（如 048期 → 049期）
-  const nextPeriod = (() => {
-    // 只有 lotteryResult 存在时才计算下期期号
-    if (!latestResultPeriod) return '';
-    const numMatch = latestResultPeriod.match(/(\d+)/);
-    if (!numMatch) return '';
-    const nextNum = parseInt(numMatch[1], 10) + 1;
-    return String(nextNum).padStart(numMatch[1].length, '0') + '期';
-  })();
+
+  // 当前期期号
+  const currentPeriod = currentIssue ? currentIssue.issue_no : '';
 
   useEffect(() => {
     // 拉取数据并订阅
@@ -288,7 +275,7 @@ export default function LotteryPage() {
     };
   }, [session, user]);
 
-  // 启动时从数据库加载时间配置（仅用于倒计时展示）
+  // 启动时从数据库加载时间配置
   useEffect(() => {
     getPlatformConfig().then(cfg => {
       setDrawHour(cfg.drawHour);
@@ -395,7 +382,7 @@ export default function LotteryPage() {
 
           <TouchableOpacity style={styles.headerRight} onPress={handleProfilePress}>
             <View style={styles.headerProfileContainer}>
-            {session && currentIssue && currentIssue.visibility === 'visible' && (
+            {session && (
               <View style={styles.headerVipBadge}>
                 <Text style={styles.headerVipText}>VIP</Text>
               </View>
@@ -581,7 +568,7 @@ export default function LotteryPage() {
           <View style={styles.periodRow}>
             <Text style={styles.periodLabel}>新澳门彩</Text>
             <Text style={styles.periodNumber}>
-              {latestResultPeriod || ''}
+              {currentPeriod || latestResultPeriod || ''}
             </Text>
           </View>
           
@@ -650,17 +637,15 @@ export default function LotteryPage() {
             <Text style={styles.clockText}>🕐</Text>
           </View>
           <Text style={styles.nextDrawText}>
-            下期开奖: {(() => {
+            本期开奖: {(() => {
               const now = new Date();
-              const todayDraw = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DRAW_HOUR, DRAW_MINUTE);
-              const nextDate = now > todayDraw ? new Date(now.getTime() + 86400000) : now;
-              const month = String(nextDate.getMonth() + 1).padStart(2, '0');
-              const day = String(nextDate.getDate()).padStart(2, '0');
+              const month = String(now.getMonth() + 1).padStart(2, '0');
+              const day = String(now.getDate()).padStart(2, '0');
               const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-              const weekDay = weekDays[nextDate.getDay()];
+              const weekDay = weekDays[now.getDay()];
               return `${month}月${day}日(${weekDay})`;
             })()}{' '}
-            <Text style={styles.nextPeriodText}>{nextPeriod}</Text>
+            <Text style={styles.nextPeriodText}>{currentPeriod}</Text>
           </Text>
         </View>
 
@@ -696,46 +681,30 @@ export default function LotteryPage() {
           </View>
           
           {/* 数据列表 */}
-          {/* 当前期预测（后端标记 is_current=true） */}
+          {/* 当前期：draw_date === 今天（is_current=true） */}
           {currentIssue && (
-          <View style={[styles.predictionDataRow, styles.currentPeriodRow, currentIssue.visibility === 'locked' ? styles.lockedPeriodRow : null]}>
+          <View style={[styles.predictionDataRow, styles.currentPeriodRow]}>
             <Text style={[styles.predictionCell, styles.predictionPeriodCell, styles.predictionPeriodText, styles.currentPeriodText]}>
               {currentIssue.issue_no}
             </Text>
             <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-              {currentIssue.visibility === 'locked' ? (
+              {currentIssue.prediction_content ? (
                 <View style={styles.predictionContentContainer}>
-                  <Text style={[styles.predictionContentText, styles.lockedText]}>{currentIssue.display_content}</Text>
+                  {renderPredictionContent(currentIssue.prediction_content)}
                 </View>
-              ) : currentIssue.visibility === 'visible' ? (
-                <View style={styles.predictionContentContainer}>
-                  {renderPredictionContent(currentIssue.display_content || '')}
-                </View>
-              ) : currentIssue.cta_type === 'login' ? (
-                <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginPromptContainer}>
-                  <Text style={styles.loginPromptText}>{currentIssue.cta_text || '登录查看'}</Text>
-                </TouchableOpacity>
-              ) : currentIssue.cta_type === 'buy_or_redeem' ? (
-                <TouchableOpacity onPress={() => router.push('/membership')} style={styles.loginPromptContainer}>
-                  <Text style={styles.buyPromptText}>{currentIssue.display_content}</Text>
-                </TouchableOpacity>
               ) : (
-                <Text style={styles.predictionContentText}>{currentIssue.display_content}</Text>
+                <Text style={[styles.predictionContentText, styles.lockedText]}>????</Text>
               )}
             </View>
             <View style={[styles.predictionCellView, styles.predictionResultCell]}>
-              {currentIssue.visibility === 'locked' ? (
-                <Text style={[styles.pendingResultText, styles.lockedText]}>{currentIssue.display_result}</Text>
-              ) : (
-                renderPredictionResult(currentIssue)
-              )}
+              {renderPredictionResult(currentIssue)}
             </View>
           </View>
           )}
-          
+
           {historyItems.map((item, index) => (
-            <View 
-              key={item.id} 
+            <View
+              key={item.id}
               style={[
                 styles.predictionDataRow,
                 index % 2 === 0 ? styles.predictionEvenRow : styles.predictionOddRow
@@ -745,7 +714,7 @@ export default function LotteryPage() {
                 {item.issue_no}
               </Text>
               <View style={[styles.predictionCellView, styles.predictionContentCell]}>
-                {renderPredictionContent(item.display_content || '')}
+                {renderPredictionContent(item.prediction_content || '')}
               </View>
               <View style={[styles.predictionCellView, styles.predictionResultCell]}>
                 {renderPredictionResult(item)}
@@ -891,6 +860,13 @@ const styles = StyleSheet.create({
   },
   rulesSection: {
     marginBottom: 18,
+  },
+  rulesFeaturedSection: {
+    backgroundColor: '#fff8f0',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffe0b2',
   },
   rulesSectionTitle: {
     fontSize: 15,

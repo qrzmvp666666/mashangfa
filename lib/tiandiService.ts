@@ -9,29 +9,23 @@ export interface BallData {
 export interface TiandiSpecial {
   id: number;
   issue_no: string;
-  prediction_content: string | null;
-  is_correct: boolean | null;
-  result_balls: BallData[] | null;
-  result_animal: string | null;
-  result_number: number | null;
-  is_current: boolean;
-  display_content: string;
-  display_result: string;
-  visibility: 'locked' | 'visible' | 'login_required' | 'member_only';
-  cta_type: 'login' | 'buy_or_redeem' | null;
-  cta_text: string | null;
-  created_at: string | null;
-  updated_at: string | null;
+  draw_date: string;           // 对应日期，如 "2026-02-19"
+  prediction_content: string | null;  // null 表示当天预测尚未发布
+  is_correct: boolean | null;  // null=待开奖, true=命中, false=未中
+  is_current: boolean;         // draw_date === 今天（北京时间）
+  special_animal: string | null;
+  special_num: number | null;
+  special_color: string | null;
 }
 
 /**
- * 获取"精选天地中特"列表（含后端处理的展示逻辑）
- * 后端根据用户身份和时间返回 display_content / visibility 等字段
- * 前端只需直接展示，不再做权限/时间判断
+ * 获取"精选天地中特"列表
+ * 返回 draw_date <= 今天（北京时间）的记录，已 JOIN lottery_results 开奖结果
+ * 无需做任何用户权限判断，数据直接展示
  */
 export async function fetchTiandiSpecials(): Promise<TiandiSpecial[]> {
   try {
-    const { data, error } = await supabase.rpc('get_tiandi_with_visibility');
+    const { data, error } = await supabase.rpc('get_tiandi_specials');
     if (error) {
       console.error('Error fetching tiandi specials:', error);
       return [];
