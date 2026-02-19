@@ -11,7 +11,7 @@ import { Platform } from 'react-native';
 export default function RootLayout() {
   // 在 web 平台设置页面标题
   if (Platform.OS === 'web' && typeof document !== 'undefined') {
-    document.title = '码上发';
+    document.title = '马上有码';
   }
 
   return (

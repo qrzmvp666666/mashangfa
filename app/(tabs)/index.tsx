@@ -440,7 +440,7 @@ export default function LotteryPage() {
         style={styles.headerBanner}
       >
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>码上发（mashangfa.com）</Text>
+          <Text style={styles.headerTitle}>马上有码（msym.fun）</Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>

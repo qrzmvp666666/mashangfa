@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "码上发",
+    "name": "马上有码",
     "slug": "jijiangling",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,7 +34,8 @@
       "backgroundColor": "#ffffff",
       "themeColor": "#ffffff",
       "scope": "/",
-      "startUrl": "/"
+      "startUrl": "/",
+      "name": "马上有码（msym.fun）"
     },
     "plugins": [
       "expo-router",
