@@ -16,10 +16,9 @@ import { supabase } from '../../lib/supabase';
 // 公告横幅组件
 const ANNOUNCEMENTS = [
   '🎉 有奖竞猜活动火热进行中！',
-  '📢 中奖规则：猜中特码即可获得丰厚奖励',
-  '💰 每日15点公布预测，21:30开奖',
-  '🎯 精准天地中特，胜率88%等你来挑战',
+  '� 每日15点公布预测，21:30开奖',
   '🔥 登录即可查看最新一期预测内容',
+  '📱 下载APP享受更好体验',
 ];
 
 const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules }) => {
@@ -285,6 +284,10 @@ export default function LotteryPage() {
         },
         (payload) => {
           console.log('[Home] 🔄 User profile updated:', payload.new);
+          // 立即更新 profile，触发 isVip 重新计算
+          if (payload.new && payload.new.membership_expires_at !== undefined) {
+            console.log('[Home] ✅ membership_expires_at changed, rerender triggered');
+          }
           refreshProfile();
         }
       )
@@ -743,7 +746,7 @@ export default function LotteryPage() {
           {/* 表头 */}
           <View style={styles.predictionTableHeader}>
             <Text style={[styles.predictionHeaderCell, styles.predictionPeriodCell]}>期数</Text>
-            <Text style={[styles.predictionHeaderCell, styles.predictionContentCell]}>预测内容</Text>
+            <Text style={[styles.predictionHeaderCell, styles.predictionContentCell]}>推荐参考</Text>
             <Text style={[styles.predictionHeaderCell, styles.predictionResultCell]}>开奖结果</Text>
           </View>
           
