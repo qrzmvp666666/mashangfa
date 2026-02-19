@@ -8,7 +8,7 @@ import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
-import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData } from '../../lib/tiandiService';
+import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData, fetchLatestLotteryResult, subscribeToLotteryResults, LotteryResult } from '../../lib/tiandiService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
 
 // 公告横幅组件
@@ -225,6 +225,7 @@ export default function LotteryPage() {
   const { session, user } = useAuth();
   const [tiandiData, setTiandiData] = useState<TiandiSpecial[]>([]);
   const [tiandiLoading, setTiandiLoading] = useState(true);
+  const [lotteryResult, setLotteryResult] = useState<LotteryResult | null>(null);
 
   // 时间配置（仅用于倒计时展示）
   const [DRAW_HOUR, setDrawHour] = useState(DEFAULT_DRAW_HOUR);
@@ -243,11 +244,12 @@ export default function LotteryPage() {
   const historyItems = tiandiData.filter(item => !item.is_current);
   
   // 从开奖结果中取最新一条，计算"下期"期号
-  const latestResult = tiandiData.find(item => item.result_balls && item.result_balls.length === 7);
-  const latestResultPeriod = latestResult ? latestResult.issue_no : null; // e.g. "048期"
+  // 直接使用 lotteryResult，不进行降级（遵循用户意图：独立接口优先，无则显示等待）
+  const latestResultPeriod = lotteryResult ? lotteryResult.issue_no : null;
   
   // 下期期号：从开奖结果最新期号 +1（如 048期 → 049期）
   const nextPeriod = (() => {
+    // 只有 lotteryResult 存在时才计算下期期号
     if (!latestResultPeriod) return '';
     const numMatch = latestResultPeriod.match(/(\d+)/);
     if (!numMatch) return '';
@@ -269,8 +271,19 @@ export default function LotteryPage() {
     
     // 订阅变动
     const unsubscribe = subscribeToTiandiSpecials(loadData);
+
+    // 独立拉取最新开奖结果并订阅
+    const loadLotteryData = async () => {
+      const result = await fetchLatestLotteryResult();
+      setLotteryResult(result);
+    };
+    loadLotteryData();
+    const unsubscribeLottery = subscribeToLotteryResults(loadLotteryData);
     
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      unsubscribeLottery();
+    };
   }, [session, user]);
 
   // 启动时从数据库加载时间配置（仅用于倒计时展示）
@@ -573,11 +586,16 @@ export default function LotteryPage() {
         {/* 开奖号码区域 - 显示最新一期完整开奖结果 */}
         <View style={styles.numbersSection}>
           {(() => {
-            // 找到最新一条有开奖结果的记录
-            const latestWithResult = tiandiData.find(item => item.result_balls && item.result_balls.length === 7);
-            if (latestWithResult && latestWithResult.result_balls) {
-              const normalBalls = latestWithResult.result_balls.slice(0, 6);
-              const specialBall = latestWithResult.result_balls[6];
+            // 直接根据 independent lotteryResult 判断
+            let normalBalls: BallData[] = [];
+            let specialBall: BallData | null = null;
+
+            if (lotteryResult && lotteryResult.balls && lotteryResult.balls.length === 7) {
+               normalBalls = lotteryResult.balls.slice(0, 6);
+               specialBall = lotteryResult.balls[6];
+            }
+
+            if (specialBall) {
               return (
                 <View style={styles.latestResultContainer}>
                   <View style={styles.numbersRow}>

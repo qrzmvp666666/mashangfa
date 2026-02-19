@@ -69,3 +69,60 @@ export function subscribeToTiandiSpecials(onUpdate: () => void) {
     supabase.removeChannel(channel);
   };
 }
+
+export interface LotteryResult {
+  id: number;
+  issue_no: string;
+  draw_date: string;
+  balls: BallData[];
+  special_num: number;
+  special_animal: string;
+  special_color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * 获取最新一期开奖结果（独立于预测记录）
+ */
+export async function fetchLatestLotteryResult(): Promise<LotteryResult | null> {
+  try {
+    const { data, error } = await supabase.rpc('get_latest_lottery_result');
+    if (error) {
+      console.error('Error fetching latest lottery result:', error);
+      return null;
+    }
+    if (data && data.length > 0) {
+      return data[0] as LotteryResult;
+    }
+    return null;
+  } catch (err) {
+    console.error('Fetch latest lottery result error:', err);
+    return null;
+  }
+}
+
+/**
+ * 订阅开奖结果变动
+ */
+export function subscribeToLotteryResults(onUpdate: () => void) {
+  const channel = supabase
+    .channel('public:lottery_results')
+    .on(
+      'postgres_changes',
+      {
+        event: '*', 
+        schema: 'public', 
+        table: 'lottery_results'
+      },
+      (payload) => {
+        console.log('Lottery result update received!', payload);
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}
