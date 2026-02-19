@@ -694,14 +694,6 @@ export default function LotteryPage() {
                 <Text style={styles.rulesText}>• 输入兑换码并点击兑换即可；</Text>
                 <Text style={styles.rulesText}><Text style={styles.rulesHighlight}>• 若当期付费用户未中奖，可联系客服免费领取下一期兑换码</Text></Text>
               </View>
-
-              {/* 查看权限说明 */}
-              <View style={styles.rulesSection}>
-                <Text style={styles.rulesSectionTitle}>🔐 查看权限</Text>
-                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>会员用户</Text>：可查看当期最新预测 + 历史记录</Text>
-                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>普通用户</Text>：可查看历史记录，最新预测需开通会员</Text>
-                <Text style={styles.rulesText}>• <Text style={styles.rulesHighlight}>未登录</Text>：需先登录账号</Text>
-              </View>
             </ScrollView>
           </View>
         </View>
@@ -1159,11 +1151,7 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   rulesFeaturedSection: {
-    backgroundColor: '#fff8f0',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ffe0b2',
+    padding: 0,
   },
   rulesIntroSection: {
     backgroundColor: '#f0f8ff',
