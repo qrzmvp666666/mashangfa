@@ -668,7 +668,7 @@ export default function LotteryPage() {
 
               {/* 警示提醒 - 置顶显示 */}
               <View style={[styles.rulesSection, styles.rulesTipSection]}>
-                <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测资料仅供参考娱乐，请理性对待，切勿赌博，量力而行。</Text>
+                <Text style={styles.rulesTipText}>⚠️ 重要提示：严禁18岁以下用户参与，预测资料仅供参考娱乐，请理性对待，切勿赌博，免费领取。</Text>
               </View>
 
               {/* 开奖时间 */}
