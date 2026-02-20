@@ -939,23 +939,33 @@ export default function LotteryPage() {
                 <Text style={styles.latestRecommendationPeriod}>{currentIssue.issue_no}</Text>
               </View>
               <View style={styles.latestRecommendationCenter}>
-                {!session ? (
-                  <PulseButton onPress={() => router.push('/login')} text="付费可查看" />
-                ) : isVip ? (
-                  currentIssue.prediction_content ? (
+                {currentIssue.prediction_content ? (
+                  isVip ? (
                     <View style={styles.latestRecommendationTextContainer}>
                       {renderPredictionContent(currentIssue.prediction_content)}
                     </View>
                   ) : (
-                    <Text style={styles.latestRecommendationPendingText}>
-                      {PREDICTION_HOUR}点{PREDICTION_MINUTE > 0 ? `${PREDICTION_MINUTE}分` : ''}后更新
-                    </Text>
+                    <PulseButton onPress={() => router.push('/membership')} text="付费可查看" />
                   )
                 ) : (
-                  <PulseButton onPress={() => router.push('/membership')} text="付费可查看" />
+                  <Text style={styles.latestRecommendationPendingText}>
+                    {PREDICTION_HOUR}点{PREDICTION_MINUTE > 0 ? `${PREDICTION_MINUTE}分` : ''}后更新
+                  </Text>
                 )}
               </View>
-
+              <View style={styles.latestRecommendationRight}>
+                {currentIssue.prediction_content ? (
+                  isVip && (
+                    <Text style={styles.latestRecommendationReservedText}>已为您更新</Text>
+                  )
+                ) : (
+                  isVip ? (
+                    <Text style={styles.latestRecommendationReservedText}>您已预约</Text>
+                  ) : (
+                    <PulseButton onPress={() => router.push('/membership')} text="兑换预约" />
+                  )
+                )}
+              </View>
             </View>
           )}
         </BreathingBorder>
@@ -1740,6 +1750,11 @@ const styles = StyleSheet.create({
   latestRecommendationPendingText: {
     fontSize: 13,
     color: '#999',
+    fontWeight: '500',
+  },
+  latestRecommendationReservedText: {
+    fontSize: 12,
+    color: '#52c41a',
     fontWeight: '500',
   },
   // 付费用户轮播样式
