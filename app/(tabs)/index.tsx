@@ -945,7 +945,7 @@ export default function LotteryPage() {
                       {renderPredictionContent(currentIssue.prediction_content)}
                     </View>
                   ) : (
-                    <PulseButton onPress={() => router.push('/membership')} text="付费可查看" />
+                    <Text style={styles.latestRecommendationPendingText}>内容已更新</Text>
                   )
                 ) : (
                   <Text style={styles.latestRecommendationPendingText}>
@@ -955,8 +955,10 @@ export default function LotteryPage() {
               </View>
               <View style={styles.latestRecommendationRight}>
                 {currentIssue.prediction_content ? (
-                  isVip && (
+                  isVip ? (
                     <Text style={styles.latestRecommendationReservedText}>已为您更新</Text>
+                  ) : (
+                    <PulseButton onPress={() => router.push('/membership')} text="付费查看" />
                   )
                 ) : (
                   isVip ? (
