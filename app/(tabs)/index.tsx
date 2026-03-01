@@ -453,6 +453,14 @@ export default function LotteryPage() {
   const [quickActionsVisible, setQuickActionsVisible] = useState(false);
   const [qrModalType, setQrModalType] = useState<'customer' | 'group' | null>(null);
 
+  const handleMembershipAccessPress = () => {
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+    router.push('/membership');
+  };
+
   const currentSettings = LOTTERY_DATA[activeTab];
   // 当前期：draw_date === 今天（is_current=true 由后端计算）
   const currentIssue = tiandiData.find(item => item.is_current) || null;
@@ -958,13 +966,13 @@ export default function LotteryPage() {
                   isVip ? (
                     <Text style={styles.latestRecommendationReservedText}>已为您更新</Text>
                   ) : (
-                    <PulseButton onPress={() => router.push('/membership')} text="付费查看" />
+                    <PulseButton onPress={handleMembershipAccessPress} text="付费查看" />
                   )
                 ) : (
                   isVip ? (
                     <Text style={styles.latestRecommendationReservedText}>您已预约</Text>
                   ) : (
-                    <PulseButton onPress={() => router.push('/membership')} text="兑换预约" />
+                    <PulseButton onPress={handleMembershipAccessPress} text="兑换预约" />
                   )
                 )}
               </View>
