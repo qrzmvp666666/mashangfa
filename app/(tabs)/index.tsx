@@ -124,8 +124,8 @@ const PulseButton: React.FC<{ onPress: () => void; text: string }> = ({ onPress,
   );
 };
 
-// 付费用户模拟数据（50条）
-const PAID_USERS = [
+// 付费用户模拟数据（基础样本）
+const PAID_USERS_BASE = [
   { name: '13847291563', time: '刚刚' },
   { name: 'zhangsan2024', time: '1分钟前' },
   { name: '15938472615', time: '2分钟前' },
@@ -178,6 +178,14 @@ const PAID_USERS = [
   { name: 'sichuan2024', time: '7小时前' },
   { name: '13758291634', time: '8小时前' },
 ];
+
+// 付费用户模拟数据（500条）
+const PAID_USERS = Array.from({ length: 500 }, (_, index) => {
+  const baseUser = PAID_USERS_BASE[index % PAID_USERS_BASE.length];
+  return {
+    ...baseUser,
+  };
+});
 
 // 脱敏处理函数
 const maskName = (name: string) => {
