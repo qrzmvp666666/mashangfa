@@ -81,8 +81,13 @@ export default function MembershipPage() {
       router.push('/login');
       return;
     }
-    // TODO: 接入支付流程
-    console.log('Purchase plan:', plan.name);
+    router.push({
+      pathname: '/purchase-h5',
+      params: {
+        planId: plan.id,
+        planName: plan.name,
+      },
+    });
   };
 
   return (
@@ -107,7 +112,7 @@ export default function MembershipPage() {
             <ActivityIndicator size="large" color={COLORS.primary} />
           </View>
         ) : (
-          plans.filter(plan => plan.duration_days !== 1).map((plan) => (
+          plans.map((plan) => (
             <View key={plan.id} style={styles.planCard}>
               {/* 套餐名称和价格 */}
               <View style={styles.planHeader}>
