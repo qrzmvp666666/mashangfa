@@ -76,16 +76,35 @@ export default function MembershipPage() {
     loadPlans();
   }, []);
 
+  const getLoggedInPhone = () => {
+    const email = session?.user?.email;
+    if (!email || !email.endsWith('@mashangfa.local')) {
+      return '';
+    }
+
+    const encodedAccount = email.replace('@mashangfa.local', '');
+    try {
+      const decodedAccount = decodeURIComponent(encodedAccount);
+      const mobileCnWithPrefixRegex = /^\+86(1[3-9]\d{9})$/;
+      const match = decodedAccount.match(mobileCnWithPrefixRegex);
+      return match ? match[1] : '';
+    } catch {
+      return '';
+    }
+  };
+
   const handlePurchase = (plan: MembershipPlan) => {
     if (!session) {
       router.push('/login');
       return;
     }
+    const phone = getLoggedInPhone();
     router.push({
       pathname: '/purchase-h5',
       params: {
         planId: plan.id,
         planName: plan.name,
+        phone,
       },
     });
   };

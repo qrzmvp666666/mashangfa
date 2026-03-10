@@ -8,7 +8,7 @@ const DEFAULT_H5_URL = 'http://localhost:5173/';
 
 export default function PurchaseH5Page() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ planId?: string; planName?: string }>();
+  const params = useLocalSearchParams<{ planId?: string; planName?: string; phone?: string }>();
 
   const baseUrl = process.env.EXPO_PUBLIC_PURCHASE_H5_URL || DEFAULT_H5_URL;
 
@@ -21,11 +21,14 @@ export default function PurchaseH5Page() {
       if (params.planName) {
         url.searchParams.set('planName', String(params.planName));
       }
+      if (params.phone) {
+        url.searchParams.set('phone', String(params.phone));
+      }
       return url.toString();
     } catch {
       return DEFAULT_H5_URL;
     }
-  }, [baseUrl, params.planId, params.planName]);
+  }, [baseUrl, params.planId, params.planName, params.phone]);
 
   if (Platform.OS !== 'web') {
     return (
