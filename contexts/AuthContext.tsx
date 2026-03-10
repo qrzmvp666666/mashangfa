@@ -9,6 +9,7 @@ const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_KEY || 'eyJhbGciOiJIU
 export type UserProfile = {
   id: string;
   email: string;
+  phone: string | null;
   username: string | null;
   account_id: string;
   avatar_url: string | null;
@@ -83,6 +84,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const normalizeMainlandPhone = (phone: string) => {
+    const cleanedPhone = phone.trim();
+    const phoneWithCountryCodeMatch = cleanedPhone.match(/^\+86(1[3-9]\d{9})$/);
+
+    if (phoneWithCountryCodeMatch) {
+      return phoneWithCountryCodeMatch[1];
+    }
+
+    if (/^1[3-9]\d{9}$/.test(cleanedPhone)) {
+      return cleanedPhone;
+    }
+
+    return null;
+  };
+
+  const syncUserPhone = async (authUserId: string | undefined, phone: string) => {
+    if (!authUserId || !phone) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ phone })
+        .eq('auth_user_id', authUserId);
+
+      if (error) {
+        console.error('同步手机号到 users 表失败:', error);
+      }
+    } catch (error) {
+      console.error('同步手机号到 users 表异常:', error);
+    }
+  };
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -309,20 +344,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signInOrSignUpWithCustomAccount = async (account: string, password: string) => {
     try {
       const normalizedAccount = account.trim();
-      const mobileCnWithPrefixRegex = /^\+86(1[3-9]\d{9})$/;
+      const localPhoneNumber = normalizeMainlandPhone(normalizedAccount);
 
-      if (!mobileCnWithPrefixRegex.test(normalizedAccount)) {
+      if (!localPhoneNumber) {
         return {
           data: null,
-          error: { message: '仅支持+86手机号登录/注册，例如+8613812345678' },
+          error: { message: '仅支持11位中国大陆手机号，例如13812345678' },
           isNewUser: false,
         };
       }
 
-      console.log('🔐 开始手机号登录即注册:', normalizedAccount);
+      const accountWithCountryCode = `+86${localPhoneNumber}`;
+
+      console.log('🔐 开始手机号登录即注册:', localPhoneNumber);
 
       // 将手机号转换为邮箱格式（添加固定后缀）
-      const encodedAccount = encodeURIComponent(normalizedAccount);
+      const encodedAccount = encodeURIComponent(accountWithCountryCode);
       const email = `${encodedAccount}@mashangfa.local`;
 
       // 1. 先尝试登录
@@ -332,6 +369,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
 
       if (!loginError && loginData.session) {
+        const authUserId = loginData.user?.id ?? loginData.session.user?.id;
+        await syncUserPhone(authUserId, localPhoneNumber);
         console.log('✅ 登录成功');
         return { data: loginData, error: null, isNewUser: false };
       }
@@ -346,6 +385,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           email,
           password,
           options: {
+            data: {
+              phone: localPhoneNumber,
+            },
             // 自动确认邮箱，无需验证
             emailRedirectTo: undefined,
           }
@@ -357,6 +399,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           return { data: null, error: { ...signUpError, message: errorMessage }, isNewUser: false };
         }
 
+        const authUserId = signUpData.user?.id ?? signUpData.session?.user?.id;
+        await syncUserPhone(authUserId, localPhoneNumber);
         console.log('✅ 注册成功，已自动登录');
         return { data: signUpData, error: null, isNewUser: true };
       }
