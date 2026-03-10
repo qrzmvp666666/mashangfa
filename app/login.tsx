@@ -34,6 +34,8 @@ export default function LoginScreen() {
   const { signInOrSignUpWithCustomAccount } = useAuth();
   const { t } = useTranslation();
 
+  const MOBILE_CN_REGEX = /^1[3-9]\d{9}$/;
+
   const [account, setAccount] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -42,9 +44,20 @@ export default function LoginScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('error');
 
+  const handleAccountChange = (text: string) => {
+    const sanitized = text.replace(/\D/g, '');
+    setAccount(sanitized.slice(0, 11));
+  };
+
   const handleLogin = async () => {
     if (!account) {
-      setToastMessage('请输入账号');
+      setToastMessage('请输入手机号');
+      setToastType('warning');
+      setShowToast(true);
+      return;
+    }
+    if (!MOBILE_CN_REGEX.test(account)) {
+      setToastMessage('请输入11位中国大陆手机号');
       setToastType('warning');
       setShowToast(true);
       return;
@@ -63,7 +76,8 @@ export default function LoginScreen() {
     }
 
     setLoading(true);
-    const result = await signInOrSignUpWithCustomAccount(account, password);
+    const fullPhone = `+86${account}`;
+    const result = await signInOrSignUpWithCustomAccount(fullPhone, password);
     setLoading(false);
 
     if (result.error) {
@@ -102,17 +116,22 @@ export default function LoginScreen() {
           <View style={styles.formContainer}>
             {/* 账号输入 */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>账号</Text>
+              <Text style={styles.label}>手机号</Text>
               <View style={styles.inputWrapper}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="请输入手机号/邮箱/账号"
-                  placeholderTextColor={COLORS.textMuted}
-                  value={account}
-                  onChangeText={setAccount}
-                  autoCapitalize="none"
-                  keyboardType="default"
-                />
+                <View style={styles.phoneInputContainer}>
+                  <View style={styles.phonePrefixBox}>
+                    <Text style={styles.phonePrefixText}>+86</Text>
+                  </View>
+                  <TextInput
+                    style={styles.phoneInput}
+                    placeholder="请输入11位手机号"
+                    placeholderTextColor={COLORS.textMuted}
+                    value={account}
+                    onChangeText={handleAccountChange}
+                    keyboardType="phone-pad"
+                    maxLength={11}
+                  />
+                </View>
                 {account.length > 0 && (
                   <TouchableOpacity
                     onPress={() => setAccount('')}
@@ -160,7 +179,7 @@ export default function LoginScreen() {
 
             {/* 提示文字 */}
             <Text style={styles.hintText}>
-              首次登录将自动注册账号
+              仅支持中国大陆手机号，首次登录将自动注册
             </Text>
           </View>
 
@@ -238,14 +257,33 @@ const styles = StyleSheet.create({
     position: 'relative',
     justifyContent: 'center',
   },
-  input: {
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 56,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    backgroundColor: '#ffffff',
+  },
+  phonePrefixBox: {
+    height: '100%',
+    paddingHorizontal: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRightWidth: 1,
+    borderRightColor: '#e0e0e0',
+  },
+  phonePrefixText: {
+    fontSize: 16,
+    color: '#333333',
+    fontWeight: '500',
+  },
+  phoneInput: {
+    flex: 1,
+    height: '100%',
     paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: '#ffffff',
     color: '#333333',
     ...(Platform.OS === 'web' && {
       outlineStyle: 'none' as any,

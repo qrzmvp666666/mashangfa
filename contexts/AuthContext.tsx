@@ -305,14 +305,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
-  // 登录即注册：使用自定义账号（支持手机号、邮箱、汉字或任意格式）
+  // 登录即注册：仅支持 +86 手机号
   const signInOrSignUpWithCustomAccount = async (account: string, password: string) => {
     try {
-      console.log('🔐 开始自定义账号登录即注册:', account);
+      const normalizedAccount = account.trim();
+      const mobileCnWithPrefixRegex = /^\+86(1[3-9]\d{9})$/;
 
-      // 对账号进行编码（支持汉字等特殊字符）
-      const encodedAccount = encodeURIComponent(account);
-      // 将自定义账号转换为邮箱格式（添加固定后缀）
+      if (!mobileCnWithPrefixRegex.test(normalizedAccount)) {
+        return {
+          data: null,
+          error: { message: '仅支持+86手机号登录/注册，例如+8613812345678' },
+          isNewUser: false,
+        };
+      }
+
+      console.log('🔐 开始手机号登录即注册:', normalizedAccount);
+
+      // 将手机号转换为邮箱格式（添加固定后缀）
+      const encodedAccount = encodeURIComponent(normalizedAccount);
       const email = `${encodedAccount}@mashangfa.local`;
 
       // 1. 先尝试登录
@@ -353,6 +363,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       // 4. 其他错误
       const errorMessage = loginError ? translateAuthError(loginError.message) : '登录失败';
+      if (errorMessage.includes('邮箱')) {
+        return { data: null, error: { message: errorMessage.replace(/邮箱/g, '手机号') }, isNewUser: false };
+      }
       return { data: null, error: { message: errorMessage }, isNewUser: false };
     } catch (error: any) {
       console.error('🔐 自定义账号登录即注册异常:', error);
