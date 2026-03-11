@@ -5,13 +5,13 @@ import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
 import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData, fetchLatestLotteryResult, subscribeToLotteryResults, LotteryResult } from '../../lib/tiandiService';
 import { getPlatformConfig } from '../../lib/platformConfigService';
 import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
 import { supabase } from '../../lib/supabase';
+import Toast from '../../components/Toast';
 
 // 呼吸边框组件
 const BreathingBorder: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -458,6 +458,15 @@ export default function LotteryPage() {
   const [rulesVisible, setRulesVisible] = useState(false);
   const [quickActionsVisible, setQuickActionsVisible] = useState(false);
   const [qrModalType, setQrModalType] = useState<'customer' | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  };
 
   const handleMembershipAccessPress = () => {
     if (!session) {
@@ -634,13 +643,13 @@ export default function LotteryPage() {
   const saveQrImage = async (assetModule: number, label: string) => {
     try {
       if (Platform.OS === 'web') {
-        Alert.alert('提示', '网页端暂不支持保存图片');
+        showToast('网页端暂不支持直接保存到相册', 'warning');
         return;
       }
 
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('提示', '需要相册权限才能保存图片');
+        showToast('需要相册权限才能保存图片', 'warning');
         return;
       }
 
@@ -648,18 +657,15 @@ export default function LotteryPage() {
       await asset.downloadAsync();
       const localUri = asset.localUri || asset.uri;
       if (!localUri) {
-        Alert.alert('保存失败', '无法获取图片地址');
+        showToast('保存失败：无法获取图片地址', 'error');
         return;
       }
 
-      const filename = `${label}-${Date.now()}.jpg`;
-      const dest = `${FileSystem.documentDirectory}${filename}`;
-      await FileSystem.copyAsync({ from: localUri, to: dest });
-      await MediaLibrary.createAssetAsync(dest);
-      Alert.alert('已保存到相册');
+      await MediaLibrary.createAssetAsync(localUri);
+      showToast('二维码已保存到相册', 'success');
     } catch (err) {
       console.error('Save QR error:', err);
-      Alert.alert('保存失败', '请稍后再试');
+      showToast('保存失败，请稍后再试', 'error');
     }
   };
 
@@ -797,7 +803,7 @@ export default function LotteryPage() {
                 style={styles.qrCopyButton}
                 onPress={async () => {
                   await Clipboard.setStringAsync(CUSTOMER_SERVICE_WECHAT);
-                  Alert.alert('已复制微信号');
+                  showToast('微信号已复制', 'success');
                 }}
               >
                 <Ionicons name="copy" size={14} color="#4a7cff" />
@@ -805,20 +811,7 @@ export default function LotteryPage() {
               </TouchableOpacity>
             </View>
 
-            <TouchableOpacity
-              style={styles.qrDownloadButton}
-              onPress={() =>
-                saveQrImage(
-                  CUSTOMER_SERVICE_QR,
-                  'customer-service'
-                )
-              }
-            >
-              <Ionicons name="download" size={16} color="#fff" />
-              <Text style={styles.qrDownloadText}>点击下载二维码</Text>
-            </TouchableOpacity>
-
-            <Text style={styles.qrHintText}>长按二维码也可保存</Text>
+            <Text style={styles.qrHintText}>可截图保留二维码，通过微信扫一扫添加客服</Text>
           </View>
         </View>
       </Modal>
@@ -1116,6 +1109,13 @@ export default function LotteryPage() {
       >
         <Ionicons name="apps" size={22} color="#fff" />
       </TouchableOpacity>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
     </SafeAreaView>
   );
 }
