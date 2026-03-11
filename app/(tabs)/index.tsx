@@ -302,9 +302,7 @@ const DEFAULT_PREDICTION_MINUTE = 0;
 
 // 二维码资源与微信号（如需替换请修改这里）
 const CUSTOMER_SERVICE_QR = require('../../assets/images/customer-service-qr.jpg');
-const GROUP_QR = CUSTOMER_SERVICE_QR; // TODO: 替换为社群二维码
 const CUSTOMER_SERVICE_WECHAT = '客服微信号';
-const GROUP_WECHAT = '社群微信号';
 
 // 六合彩预测数据（模拟数据）- 已废弃，使用数据库数据
 // const PREDICTION_DATA = [];
@@ -459,7 +457,7 @@ export default function LotteryPage() {
 
   const [rulesVisible, setRulesVisible] = useState(false);
   const [quickActionsVisible, setQuickActionsVisible] = useState(false);
-  const [qrModalType, setQrModalType] = useState<'customer' | 'group' | null>(null);
+  const [qrModalType, setQrModalType] = useState<'customer' | null>(null);
 
   const handleMembershipAccessPress = () => {
     if (!session) {
@@ -771,9 +769,7 @@ export default function LotteryPage() {
           />
           <View style={styles.qrModal}>
             <View style={styles.qrHeader}>
-              <Text style={styles.qrTitle}>
-                {qrModalType === 'customer' ? '联系客服' : '加入社群'}
-              </Text>
+              <Text style={styles.qrTitle}>联系客服</Text>
               <TouchableOpacity onPress={() => setQrModalType(null)}>
                 <Ionicons name="close" size={22} color="#666" />
               </TouchableOpacity>
@@ -783,27 +779,24 @@ export default function LotteryPage() {
               activeOpacity={0.9}
               onLongPress={() =>
                 saveQrImage(
-                  qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR,
-                  qrModalType === 'customer' ? 'customer-service' : 'wechat-group'
+                  CUSTOMER_SERVICE_QR,
+                  'customer-service'
                 )
               }
             >
               <Image
-                source={qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR}
+                source={CUSTOMER_SERVICE_QR}
                 style={styles.qrImage}
               />
             </TouchableOpacity>
 
             <View style={styles.qrWechatRow}>
               <Text style={styles.qrWechatLabel}>微信号：</Text>
-              <Text style={styles.qrWechatText}>
-                {qrModalType === 'customer' ? CUSTOMER_SERVICE_WECHAT : GROUP_WECHAT}
-              </Text>
+              <Text style={styles.qrWechatText}>{CUSTOMER_SERVICE_WECHAT}</Text>
               <TouchableOpacity
                 style={styles.qrCopyButton}
                 onPress={async () => {
-                  const text = qrModalType === 'customer' ? CUSTOMER_SERVICE_WECHAT : GROUP_WECHAT;
-                  await Clipboard.setStringAsync(text);
+                  await Clipboard.setStringAsync(CUSTOMER_SERVICE_WECHAT);
                   Alert.alert('已复制微信号');
                 }}
               >
@@ -816,8 +809,8 @@ export default function LotteryPage() {
               style={styles.qrDownloadButton}
               onPress={() =>
                 saveQrImage(
-                  qrModalType === 'customer' ? CUSTOMER_SERVICE_QR : GROUP_QR,
-                  qrModalType === 'customer' ? 'customer-service' : 'wechat-group'
+                  CUSTOMER_SERVICE_QR,
+                  'customer-service'
                 )
               }
             >
@@ -1104,18 +1097,6 @@ export default function LotteryPage() {
               style={styles.quickActionItem}
               onPress={() => {
                 setQuickActionsVisible(false);
-                setQrModalType('group');
-              }}
-            >
-              <View style={styles.quickActionIconWrap}>
-                <Ionicons name="people" size={24} color="#10b981" />
-              </View>
-              <Text style={styles.quickActionLabel}>加入社群</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.quickActionItem}
-              onPress={() => {
-                setQuickActionsVisible(false);
                 setQrModalType('customer');
               }}
             >
@@ -1295,7 +1276,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   quickActionItem: {
-    width: '25%',
+    width: '33.33%',
     alignItems: 'center',
     gap: 6,
     paddingVertical: 4,

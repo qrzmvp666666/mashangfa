@@ -160,7 +160,7 @@ export default function MembershipPage() {
                   {plan.features.map((feature, index) => (
                     <View key={index} style={styles.featureRow}>
                       <Ionicons name="checkmark-circle" size={18} color={COLORS.gold} />
-                      <Text style={styles.featureText}>{feature}</Text>
+                      <Text style={styles.featureText}>{feature === '精密五金加工' ? '会员权益' : feature}</Text>
                     </View>
                   ))}
                 </View>
@@ -224,14 +224,14 @@ export default function MembershipPage() {
 
         {/* 记录入口 */}
         <View style={styles.recordButtonsRow}>
-          {/* <TouchableOpacity
+          <TouchableOpacity
             style={styles.recordButton}
             activeOpacity={0.7}
             onPress={() => router.push('/purchase-history')}
           >
             <Ionicons name="receipt-outline" size={18} color={COLORS.primary} />
             <Text style={styles.recordButtonText}>购买记录</Text>
-          </TouchableOpacity> */}
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.recordButton}
             activeOpacity={0.7}

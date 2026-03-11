@@ -119,13 +119,6 @@ export default function PurchaseHistoryPage() {
         <Text style={styles.amount}>¥{Number(item.amount).toFixed(2)}</Text>
       </View>
 
-      {/* 备注 */}
-      {item.remark ? (
-        <View style={styles.row}>
-          <Text style={styles.label}>备注</Text>
-          <Text style={[styles.value, { flex: 1 }]}>{item.remark}</Text>
-        </View>
-      ) : null}
     </View>
   );
 
