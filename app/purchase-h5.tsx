@@ -8,7 +8,7 @@ const DEFAULT_H5_URL = 'http://localhost:5173/';
 
 export default function PurchaseH5Page() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ planId?: string; planName?: string; phone?: string }>();
+  const params = useLocalSearchParams<{ planId?: string; planName?: string; phone?: string; source?: string }>();
 
   const baseUrl = process.env.EXPO_PUBLIC_PURCHASE_H5_URL || DEFAULT_H5_URL;
 
@@ -24,6 +24,7 @@ export default function PurchaseH5Page() {
       if (params.phone) {
         url.searchParams.set('phone', String(params.phone));
       }
+      url.searchParams.set('source', 'A');
       return url.toString();
     } catch {
       return DEFAULT_H5_URL;

@@ -105,6 +105,7 @@ export default function MembershipPage() {
         planId: plan.id,
         planName: plan.name,
         phone,
+        source: 'A',
       },
     });
   };
