@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,9 @@ const DEFAULT_H5_URL = 'http://localhost:5173/';
 export default function PurchaseH5Page() {
   const router = useRouter();
   const params = useLocalSearchParams<{ planId?: string; planName?: string; phone?: string; source?: string }>();
+  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
+  const [useExternalFallback, setUseExternalFallback] = useState(false);
+  const hasAutoOpenedRef = useRef(false);
 
   const baseUrl = process.env.EXPO_PUBLIC_PURCHASE_H5_URL || DEFAULT_H5_URL;
 
@@ -30,6 +33,35 @@ export default function PurchaseH5Page() {
       return DEFAULT_H5_URL;
     }
   }, [baseUrl, params.planId, params.planName, params.phone]);
+
+  const openExternal = () => {
+    if (typeof window !== 'undefined') {
+      window.open(finalUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+    setIsIframeLoaded(false);
+    setUseExternalFallback(false);
+    hasAutoOpenedRef.current = false;
+
+    const timer = setTimeout(() => {
+      setUseExternalFallback(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [finalUrl]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !useExternalFallback || hasAutoOpenedRef.current) {
+      return;
+    }
+    hasAutoOpenedRef.current = true;
+    openExternal();
+  }, [useExternalFallback, finalUrl]);
 
   if (Platform.OS !== 'web') {
     return (
@@ -57,6 +89,13 @@ export default function PurchaseH5Page() {
     src: finalUrl,
     style: styles.iframe as any,
     allow: 'payment *; fullscreen *',
+    onLoad: () => {
+      setIsIframeLoaded(true);
+      setUseExternalFallback(false);
+    },
+    onError: () => {
+      setUseExternalFallback(true);
+    },
   });
 
   return (
@@ -73,7 +112,25 @@ export default function PurchaseH5Page() {
         <Text style={styles.headerTitle}>立即购买</Text>
         <View style={{ width: 24 }} />
       </LinearGradient>
-      <View style={styles.iframeContainer}>{iframeElement}</View>
+      <View style={styles.iframeContainer}>
+        {!useExternalFallback && iframeElement}
+
+        {useExternalFallback && (
+          <View style={styles.fallbackContainer}>
+            <Text style={styles.fallbackTitle}>页面加载较慢或证书异常</Text>
+            <Text style={styles.fallbackDesc}>已尝试为你打开外部浏览器，你也可以手动重新打开。</Text>
+            <TouchableOpacity onPress={openExternal} style={styles.fallbackButton}>
+              <Text style={styles.fallbackButtonText}>在新窗口打开支付页</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!isIframeLoaded && !useExternalFallback && (
+          <View style={styles.loadingOverlay}>
+            <Text style={styles.loadingText}>正在加载支付页...</Text>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
@@ -106,6 +163,50 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderWidth: 0,
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  fallbackContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  fallbackTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  fallbackDesc: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  fallbackButton: {
+    marginTop: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#3a6cee',
+  },
+  fallbackButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
   unsupportedContainer: {
     flex: 1,
