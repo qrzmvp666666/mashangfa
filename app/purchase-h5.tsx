@@ -12,6 +12,7 @@ export default function PurchaseH5Page() {
   const [isIframeLoaded, setIsIframeLoaded] = useState(false);
   const [useExternalFallback, setUseExternalFallback] = useState(false);
   const hasAutoOpenedRef = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const baseUrl = process.env.EXPO_PUBLIC_PURCHASE_H5_URL || DEFAULT_H5_URL;
 
@@ -44,15 +45,26 @@ export default function PurchaseH5Page() {
     if (Platform.OS !== 'web') {
       return;
     }
+
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
     setIsIframeLoaded(false);
     setUseExternalFallback(false);
     hasAutoOpenedRef.current = false;
 
-    const timer = setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setUseExternalFallback(true);
-    }, 3000);
+    }, 7000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
   }, [finalUrl]);
 
   useEffect(() => {
@@ -90,10 +102,18 @@ export default function PurchaseH5Page() {
     style: styles.iframe as any,
     allow: 'payment *; fullscreen *',
     onLoad: () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       setIsIframeLoaded(true);
       setUseExternalFallback(false);
     },
     onError: () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
       setUseExternalFallback(true);
     },
   });
