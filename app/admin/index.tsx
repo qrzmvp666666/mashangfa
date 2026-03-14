@@ -90,6 +90,7 @@ export default function AdminHomeScreen() {
   const [formContent, setFormContent] = useState("");
   const [formSpecialAnimal, setFormSpecialAnimal] = useState("");
   const [formSpecialNum, setFormSpecialNum] = useState("");
+  const [isCorrectOverride, setIsCorrectOverride] = useState<boolean | null>(null);
   const [isSavingForm, setIsSavingForm] = useState(false);
   const [formItemData, setFormItemData] = useState<AdminRecommendation | null>(null);
 
@@ -102,8 +103,7 @@ export default function AdminHomeScreen() {
   );
 
   const availableIssues = items
-    .filter((item) => Boolean(item.description?.trim()))
-    .map((item) => item.issue_no.replace("期", ""));
+      .map((item) => item.issue_no.replace("期", ""));
 
   const showToast = useCallback(
     (message: string, type: "success" | "error" | "warning" | "info") => {
@@ -187,6 +187,7 @@ export default function AdminHomeScreen() {
     }
     setFormSpecialAnimal(fetchedAnimal);
     setFormSpecialNum(fetchedNum);
+      setIsCorrectOverride(item.is_correct_override ?? null);
 
     setFormItemData(item);
     setIsFormModalVisible(true);
@@ -208,6 +209,7 @@ export default function AdminHomeScreen() {
     setFormContent("");
     setFormSpecialAnimal("");
     setFormSpecialNum("");
+      setIsCorrectOverride(null);
     setFormItemData(null);
     setIsFormModalVisible(true);
   };
@@ -236,6 +238,7 @@ export default function AdminHomeScreen() {
           is_visible: formItemData.is_visible,
           special_animal: formSpecialAnimal,
           special_num: formSpecialNum,
+          is_correct_override: isCorrectOverride,
         },
         formId ?? undefined
       );
@@ -254,6 +257,7 @@ export default function AdminHomeScreen() {
         is_visible: true,
         special_animal: formSpecialAnimal,
         special_num: formSpecialNum,
+          is_correct_override: isCorrectOverride,
       }, existingItem?.id);
       error = result.error;
     }
@@ -533,6 +537,30 @@ export default function AdminHomeScreen() {
               </View>
             </View>
 
+            <View style={{ marginBottom: 24 }}>
+              <Text style={styles.configLabel}>是否中奖 (覆盖计算)</Text>
+              <View style={{ flexDirection: "row", marginTop: 8, gap: 12 }}>
+                <TouchableOpacity
+                  style={[styles.statusOption, isCorrectOverride === null && styles.statusOptionActive]}
+                  onPress={() => setIsCorrectOverride(null)}
+                >
+                  <Text style={[styles.statusOptionText, isCorrectOverride === null && styles.statusOptionTextActive]}>自动判断</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.statusOption, isCorrectOverride === true && styles.statusOptionActive]}
+                  onPress={() => setIsCorrectOverride(true)}
+                >
+                  <Text style={[styles.statusOptionText, isCorrectOverride === true && styles.statusOptionTextActive]}>已中奖</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.statusOption, isCorrectOverride === false && styles.statusOptionActive]}
+                  onPress={() => setIsCorrectOverride(false)}
+                >
+                  <Text style={[styles.statusOptionText, isCorrectOverride === false && styles.statusOptionTextActive]}>未中奖</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
@@ -627,6 +655,28 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   configSaveButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+    statusOption: {
+      flex: 1,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: "#d1d5db",
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#f9fafb"
+    },
+    statusOptionActive: {
+      borderColor: "#ef4444",
+      backgroundColor: "#fef2f2"
+    },
+    statusOptionText: {
+      fontSize: 14,
+      color: "#4b5563"
+    },
+    statusOptionTextActive: {
+      color: "#ef4444",
+      fontWeight: "600"
+    },
 
   listCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, gap: 12 },
 
@@ -829,6 +879,13 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+
+
+
+
+
+
 
 
 

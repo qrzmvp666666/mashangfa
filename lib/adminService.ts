@@ -1,4 +1,4 @@
-import { supabase } from './supabase';
+﻿import { supabase } from './supabase';
 
 export interface AdminUser {
   id: number;
@@ -9,6 +9,7 @@ export interface AdminUser {
   last_login_at: string | null;
   created_at: string;
   updated_at: string;
+  is_correct_override?: boolean | null;
 }
 
 export interface AdminRecommendation {
@@ -23,6 +24,7 @@ export interface AdminRecommendation {
   updated_by: number | null;
   created_at: string;
   updated_at: string;
+  is_correct_override?: boolean | null;
 }
 
 export interface AdminRecommendationInput {
@@ -35,6 +37,7 @@ export interface AdminRecommendationInput {
   recommendation_content: string;
   is_visible: boolean;
   updated_by?: number | null;
+  is_correct_override?: boolean | null;
 }
 
 type ServiceResult<T> = {
@@ -223,6 +226,7 @@ export async function saveAdminRecommendation(
       recommendation_content: input.recommendation_content.trim() || null,
       is_visible: input.is_visible,
       updated_by: input.updated_by ?? null,
+      is_correct_override: input.is_correct_override !== undefined ? input.is_correct_override : null,
     };
 
     const query = id
@@ -281,7 +285,11 @@ export function subscribeToAdminRecommendations(onUpdate: () => void) {
 }
 export async function deleteAdminRecommendation(id: number): Promise<ServiceResult<null>> {
   try {
-    const { error } = await supabase.from('tiandi_recommendations').delete().eq('id', id);
+    const { data: item } = await supabase.from("tiandi_recommendations").select("issue_no").eq("id", id).single();
+    if (item && item.issue_no) {
+      await supabase.from("lottery_results").update({ special_animal: null, special_num: null }).eq("issue_no", item.issue_no);
+    }
+    const { error } = await supabase.from("tiandi_recommendations").update({ recommendation_content: null, is_correct_override: null }).eq("id", id);
     if (error) {
       return { data: null, error: { message: toErrorMessage(error, 'ɾ��ʧ��') } };
     }
@@ -290,3 +298,4 @@ export async function deleteAdminRecommendation(id: number): Promise<ServiceResu
     return { data: null, error: { message: toErrorMessage(error, 'ɾ��ʧ��') } };
   }
 }
+
