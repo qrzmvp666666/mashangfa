@@ -29,9 +29,43 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
           placeholder={placeholder}
         />
         <style>{`
+          .quill {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            border-radius: 8px;
+            overflow: hidden;
+          }
+          .ql-toolbar, .ql-container, .ql-editor {
+            box-sizing: border-box;
+          }
           .ql-container {
-            font-size: 16px;
-            min-height: 100px;
+            font-size: 14px;
+            min-height: 40px;
+          }
+          .ql-editor {
+            min-height: 40px;
+            padding: 8px 12px;
+          }
+          .ql-toolbar.ql-snow {
+            text-align: left;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            padding: 4px 8px;
+          }
+          .ql-container.ql-snow {
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            border-color: #d1d5db;
+            border-top: none;
+          }
+          .ql-toolbar.ql-snow {
+            border-color: #d1d5db;
+          }
+          .ql-editor {
+            min-height: 40px;
+            padding: 8px 12px;
+            max-height: 300px;
           }
         `}</style>
       </View>
@@ -53,11 +87,12 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
 const styles = StyleSheet.create({
   webContainer: {
     backgroundColor: '#fff',
-    minHeight: 150,
-    marginBottom: 10,
+    minHeight: 40,
+    marginBottom: 0,
+    width: '100%',
   },
   nativeEditor: {
-    minHeight: 100,
+    minHeight: 40,
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,

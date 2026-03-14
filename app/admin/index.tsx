@@ -50,15 +50,13 @@ export default function AdminHomeScreen() {
   const [pageDescription, setPageDescription] = useState("");
   const [savingPageConfig, setSavingPageConfig] = useState(false);
 
-  const [editingId, setEditingId] = useState<number | null>(null);
-  const [editIssueNo, setEditIssueNo] = useState("");
-  const [editContent, setEditContent] = useState("");
-  const [savingId, setSavingId] = useState<number | null>(null);
-
-  const [isCreating, setIsCreating] = useState(false);
-  const [newIssueNo, setNewIssueNo] = useState("");
-  const [newContent, setNewContent] = useState("");
-  const [savingNew, setSavingNew] = useState(false);
+  const [isFormModalVisible, setIsFormModalVisible] = useState(false);
+  const [formMode, setFormMode] = useState<"create" | "edit">("create");
+  const [formId, setFormId] = useState<number | null>(null);
+  const [formIssueNo, setFormIssueNo] = useState("");
+  const [formContent, setFormContent] = useState("");
+  const [isSavingForm, setIsSavingForm] = useState(false);
+  const [formItemData, setFormItemData] = useState<AdminRecommendation | null>(null);
 
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<AdminRecommendation | null>(null);
@@ -139,41 +137,15 @@ export default function AdminHomeScreen() {
   };
 
   const handleEditClick = (item: AdminRecommendation) => {
-    setEditingId(item.id);
-    setEditIssueNo(item.issue_no.replace("期", ""));
-    setEditContent(item.recommendation_content || "");
-  };
-
-  const handleCancelEdit = () => {
-    setEditingId(null);
-  };
-
-  const handleSaveEdit = async (item: AdminRecommendation) => {
-    setSavingId(item.id);
-    const { error } = await saveAdminRecommendation(
-      {
-        issue_no: editIssueNo,
-        issue_date: item.issue_date,
-        title: item.title || "",
-        description: item.description || "",
-        recommendation_content: editContent,
-        is_visible: item.is_visible,
-      },
-      item.id,
-    );
-
-    if (error) {
-      showToast(error.message, "error");
-    } else {
-      showToast("更新成功", "success");
-      setEditingId(null);
-      loadData();
-    }
-    setSavingId(null);
+    setFormMode("edit");
+    setFormId(item.id);
+    setFormIssueNo(item.issue_no.replace("期", ""));
+    setFormContent(item.recommendation_content || "");
+    setFormItemData(item);
+    setIsFormModalVisible(true);
   };
 
   const handleCreateClick = () => {
-    setIsCreating(true);
     let nextIssueNo = "";
     if (visibleItems.length > 0) {
       const latestItem = visibleItems[0];
@@ -183,42 +155,64 @@ export default function AdminHomeScreen() {
         nextIssueNo = num.toString().padStart(latestItem.issue_no.replace(/\D/g, '').length || 3, "0");
       }
     }
-    setNewIssueNo(nextIssueNo);
-    setNewContent("");
+    setFormMode("create");
+    setFormId(null);
+    setFormIssueNo(nextIssueNo);
+    setFormContent("");
+    setFormItemData(null);
+    setIsFormModalVisible(true);
   };
 
-  const handleCancelCreate = () => {
-    setIsCreating(false);
+  const closeFormModal = () => {
+    setIsFormModalVisible(false);
   };
 
-  const handleSaveCreate = async () => {
-    if (!newIssueNo.trim()) {
-      showToast("请选择期号", "warning");
+  const handleSaveForm = async () => {
+    if (!formIssueNo.trim()) {
+      showToast("请选择或输入期号", "warning");
       return;
     }
-    setSavingNew(true);
     
-    const existingItem = items.find((item) => item.issue_no.replace("期", "") === newIssueNo);
-    const now = new Date();
-    const issueDate = existingItem ? existingItem.issue_date : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-    
-    const { error } = await saveAdminRecommendation({
-      issue_no: newIssueNo,
-      issue_date: issueDate,
-      title: existingItem?.title || "",
-      description: existingItem?.description || "",
-      recommendation_content: newContent,
-      is_visible: true,
-    }, existingItem?.id);
-    
+    setIsSavingForm(true);
+    let error;
+
+    if (formMode === "edit" && formItemData) {
+      const result = await saveAdminRecommendation(
+        {
+          issue_no: formIssueNo,
+          issue_date: formItemData.issue_date,
+          title: formItemData.title || "",
+          description: formItemData.description || "",
+          recommendation_content: formContent,
+          is_visible: formItemData.is_visible,
+        },
+        formId ?? undefined
+      );
+      error = result.error;
+    } else {
+      const existingItem = items.find((item) => item.issue_no.replace("期", "") === formIssueNo);
+      const now = new Date();
+      const issueDate = existingItem ? existingItem.issue_date : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      
+      const result = await saveAdminRecommendation({
+        issue_no: formIssueNo,
+        issue_date: issueDate,
+        title: existingItem?.title || "",
+        description: existingItem?.description || "",
+        recommendation_content: formContent,
+        is_visible: true,
+      }, existingItem?.id);
+      error = result.error;
+    }
+
     if (error) {
       showToast(error.message, "error");
     } else {
-      showToast("创建成功", "success");
-      setIsCreating(false);
+      showToast(formMode === "create" ? "创建成功" : "更新成功", "success");
+      setIsFormModalVisible(false);
       loadData();
     }
-    setSavingNew(false);
+    setIsSavingForm(false);
   };
 
   const handleDeleteClick = (item: AdminRecommendation) => {
@@ -347,64 +341,7 @@ export default function AdminHomeScreen() {
               </Text>
             </View>
 
-            {isCreating && (
-              <View style={[styles.tableRow, { backgroundColor: "#fff" }]}>
-                <View style={styles.colIssue}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-                    <View style={styles.pickerWrapper}>
-                      <Picker
-                        selectedValue={newIssueNo}
-                        onValueChange={(itemValue) => setNewIssueNo(itemValue ? itemValue.toString() : "")}
-                        style={styles.pickerStyle}
-                      >
-                        <Picker.Item label="请选择" value="" />
-                        {availableIssues.map((issue) => (
-                          <Picker.Item key={issue} label={`${issue}期`} value={issue} />
-                        ))}
-                      </Picker>
-                    </View>
-                  </View>
-                </View>
-                <View style={styles.colContentLeft}>
-                  <TextInput
-                    style={[
-                      styles.editInputLine,
-                      { flex: 1, textAlign: "left", paddingHorizontal: 8 },
-                    ]}
-                    value={newContent}
-                    onChangeText={setNewContent}
-                    placeholder="请输入推荐参考内容"
-                    multiline={false}
-                  />
-                </View>
-                <View style={styles.colAction}>
-                  <View style={{ flexDirection: "row", gap: 6 }}>
-                    <TouchableOpacity
-                      style={styles.btnSave}
-                      onPress={handleSaveCreate}
-                      disabled={savingNew}
-                    >
-                      {savingNew ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                      ) : (
-                        <Text style={styles.btnTextLight}>保存</Text>
-                      )}
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.btnCancel}
-                      onPress={handleCancelCreate}
-                      disabled={savingNew}
-                    >
-                      <Text style={styles.btnTextDark}>取消</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            )}
-
             {visibleItems.map((item, index) => {
-              const isEditing = editingId === item.id;
-              const isSaving = savingId === item.id;
               const rowBackgroundColor = index % 2 === 0 ? "#fafafa" : "#fff";
 
               return (
@@ -415,96 +352,37 @@ export default function AdminHomeScreen() {
                     { backgroundColor: rowBackgroundColor },
                   ]}
                 >
-                  {isEditing ? (
-                    <>
-                      <View style={styles.colIssue}>
-                        <View
-                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}
-                        >
-                          <View style={styles.pickerWrapper}>
-                            <Picker
-                              selectedValue={editIssueNo}
-                              onValueChange={(itemValue) => setEditIssueNo(itemValue ? itemValue.toString() : "")}
-                              style={styles.pickerStyle}
-                            >
-                              <Picker.Item label="请选择" value="" />
-                              {availableIssues.map((issue) => (
-                                <Picker.Item key={issue} label={`${issue}期`} value={issue} />
-                              ))}
-                            </Picker>
-                          </View>
-                        </View>
-                      </View>
-                      <View style={styles.colContentLeft}>
-                        <TextInput
-                          style={[
-                            styles.editInputLine,
-                            { flex: 1, textAlign: "left", paddingHorizontal: 8 },
-                          ]}
-                          value={editContent}
-                          onChangeText={setEditContent}
-                          placeholder="请输入推荐参考内容"
-                          multiline={false}
-                        />
-                      </View>
-                      <View style={styles.colAction}>
-                        <View style={{ flexDirection: "row", gap: 6 }}>
-                          <TouchableOpacity
-                            style={styles.btnSave}
-                            onPress={() => handleSaveEdit(item)}
-                            disabled={isSaving}
-                          >
-                            {isSaving ? (
-                              <ActivityIndicator size="small" color="#fff" />
-                            ) : (
-                              <Text style={styles.btnTextLight}>保存</Text>
-                            )}
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.btnCancel}
-                            onPress={handleCancelEdit}
-                            disabled={isSaving}
-                          >
-                            <Text style={styles.btnTextDark}>取消</Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    </>
-                  ) : (
-                    <>
-                      <View style={styles.colIssue}>
-                        <Text style={styles.issueNumberText}>
-                          {item.issue_no.includes("期")
-                            ? item.issue_no
-                            : item.issue_no + "期"}
-                        </Text>
-                      </View>
-                      <View style={styles.colContentLeft}>
-                        <Text style={[styles.referenceText, { flex: 1 }]} numberOfLines={0}>
-                          {item.recommendation_content || "待开奖"}
-                        </Text>
-                      </View>
-                      <View
-                        style={[
-                          styles.colAction,
-                          { flexDirection: "row", justifyContent: "flex-end" },
-                        ]}
-                      >
-                        <TouchableOpacity
-                          style={styles.btnEdit}
-                          onPress={() => handleEditClick(item)}
-                        >
-                          <Text style={styles.btnTextLight}>编辑</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.btnDelete}
-                          onPress={() => handleDeleteClick(item)}
-                        >
-                          <Text style={styles.btnTextLight}>删除</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </>
-                  )}
+                  <View style={styles.colIssue}>
+                    <Text style={styles.issueNumberText}>
+                      {item.issue_no.includes("期")
+                        ? item.issue_no
+                        : item.issue_no + "期"}
+                    </Text>
+                  </View>
+                  <View style={styles.colContentLeft}>
+                    <Text style={[styles.referenceText, { flex: 1 }]} numberOfLines={0}>
+                      {item.recommendation_content ? item.recommendation_content.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n/g, '').substring(0, 30) + (item.recommendation_content.length > 30 ? '...' : '') : "待开奖"}
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.colAction,
+                      { flexDirection: "row", justifyContent: "flex-end", gap: 6 },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      style={styles.btnEdit}
+                      onPress={() => handleEditClick(item)}
+                    >
+                      <Text style={styles.btnTextLight}>编辑</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.btnDelete}
+                      onPress={() => handleDeleteClick(item)}
+                    >
+                      <Text style={styles.btnTextLight}>删除</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               );
             })}
@@ -525,6 +403,62 @@ export default function AdminHomeScreen() {
         onHide={() => setToastVisible(false)}
       />
 
+      
+      <Modal visible={isFormModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { width: "90%", maxWidth: 700 }]}>
+            <Text style={styles.modalTitle}>{formMode === "create" ? "新增一期推荐" : "编辑推荐"}</Text>
+            
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.configLabel}>期数</Text>
+              <View style={[styles.pickerWrapper, { marginTop: 8, borderWidth: 1, borderColor: "#d1d5db", borderRadius: 8 }]}>
+                <Picker
+                  selectedValue={formIssueNo}
+                  onValueChange={(val) => setFormIssueNo(val ? val.toString() : "")}
+                  style={styles.pickerStyle}
+                >
+                  <Picker.Item label="请选择期数" value="" />
+                  {availableIssues.map((issue) => (
+                    <Picker.Item key={issue} label={issue + "期"} value={issue} />
+                  ))}
+                </Picker>
+              </View>
+            </View>
+
+            <View style={{ marginBottom: 24, zIndex: 99 }}>
+              <Text style={styles.configLabel}>推荐参考数据</Text>
+              <View style={{ marginTop: 8 }}>
+                <RichTextEditor
+                  value={formContent}
+                  onChange={setFormContent}
+                  placeholder="请输入推荐参考内容（可编辑颜色、底色和排版）"
+                />
+              </View>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={closeFormModal}
+                disabled={isSavingForm}
+              >
+                <Text style={styles.modalCancelBtnText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleSaveForm}
+                disabled={isSavingForm}
+              >
+                {isSavingForm ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>确定保存</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
       <Modal visible={isDeleteModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>

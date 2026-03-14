@@ -387,7 +387,9 @@ const getBallBorderStyle = (color: string) => {
 
 // 解析预测内容，高亮天肖/地肖
 const renderPredictionContent = (content: string) => {
-  const innerContent = content.replace(/[【】]/g, '');
+  // 移除富文本编辑器带来的 HTML 标签（如 <p>, <br> 等），并替换 &nbsp;
+  let cleanContent = content ? content.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n/g, '') : '';
+  const innerContent = cleanContent.replace(/[【】]/g, '');
   const parts = innerContent.split('+');
   
   return (
