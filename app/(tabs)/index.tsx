@@ -679,7 +679,7 @@ export default function LotteryPage() {
         style={styles.headerBanner}
       >
         <View style={styles.headerLeft}>
-          <Text style={styles.headerTitle}>马上有码（msym.fun）</Text>
+          <Text style={styles.headerTitle}>马上有码（msym.beer）</Text>
         </View>
 
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
