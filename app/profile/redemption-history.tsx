@@ -108,7 +108,7 @@ export default function RedemptionHistoryPage() {
         <FlatList
           data={records}
           renderItem={renderItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => String(item.id)}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>

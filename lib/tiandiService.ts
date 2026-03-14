@@ -10,6 +10,8 @@ export interface TiandiSpecial {
   id: number;
   issue_no: string;
   draw_date: string;           // 对应日期，如 "2026-02-19"
+  title: string | null;
+  description: string | null;
   prediction_content: string | null;  // null 表示当天预测尚未发布
   is_correct: boolean | null;  // null=待开奖, true=命中, false=未中
   is_current: boolean;         // draw_date === 今天（北京时间）
@@ -44,13 +46,13 @@ export async function fetchTiandiSpecials(): Promise<TiandiSpecial[]> {
  */
 export function subscribeToTiandiSpecials(onUpdate: () => void) {
   const channel = supabase
-    .channel('public:featured_tiandi_specials')
+    .channel('public:tiandi_recommendations')
     .on(
       'postgres_changes',
       {
         event: '*', 
         schema: 'public', 
-        table: 'featured_tiandi_specials'
+        table: 'tiandi_recommendations'
       },
       (payload) => {
         console.log('Tiandi update received!', payload);

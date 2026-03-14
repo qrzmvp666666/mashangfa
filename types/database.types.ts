@@ -452,6 +452,43 @@ export type Database = {
         ]
       }
       users: {
+        Row: {
+          id: string
+          auth_user_id: string | null
+          email: string | null
+          phone: string | null
+          username: string | null
+          avatar_url: string | null
+          membership_expires_at: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          auth_user_id?: string | null
+          email?: string | null
+          phone?: string | null
+          username?: string | null
+          avatar_url?: string | null
+          membership_expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          auth_user_id?: string | null
+          email?: string | null
+          phone?: string | null
+          username?: string | null
+          avatar_url?: string | null
+          membership_expires_at?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Functions: {
       get_traders_with_stats: {
         Args: {
           p_limit?: number

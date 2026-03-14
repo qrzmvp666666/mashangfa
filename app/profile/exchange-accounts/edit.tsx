@@ -786,9 +786,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     paddingTop: Platform.OS === 'android' ? 30 : 0,
     ...(Platform.OS === 'web' && {
-      minHeight: '100vh',
-      height: '100vh',
-      maxHeight: '100vh',
+      minHeight: '100vh' as any,
+      height: '100vh' as any,
+      maxHeight: '100vh' as any,
       overflow: 'hidden',
       position: 'relative' as any,
     }),

@@ -418,6 +418,33 @@ const renderPredictionContent = (content: string) => {
   );
 };
 
+const renderDescriptionContent = (description?: string | null) => {
+  if (!description || !description.trim()) {
+    return (
+      <View style={styles.legendLeft}>
+        <Text style={styles.legendText}>
+          <Text style={styles.tianXiaoLabel}>天肖：</Text>
+          <Text style={styles.tianXiaoAnimals}>【兔马猴猪牛龙】</Text>
+        </Text>
+        <Text style={styles.legendText}>
+          <Text style={styles.diXiaoLabel}>地肖：</Text>
+          <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.legendLeft}>
+      {description.split(/\r?\n/).filter(Boolean).map((line, index) => (
+        <Text key={`${line}-${index}`} style={styles.legendText}>
+          {line}
+        </Text>
+      ))}
+    </View>
+  );
+};
+
 // 渲染预测结果：直接使用 JOIN 后的 special_animal / special_num
 const renderPredictionResult = (item: TiandiSpecial) => {
   if (item.special_num === null || item.special_num === undefined) {
@@ -454,6 +481,8 @@ export default function LotteryPage() {
   const [DRAW_MINUTE, setDrawMinute] = useState(DEFAULT_DRAW_MINUTE);
   const [PREDICTION_HOUR, setPredictionHour] = useState(DEFAULT_PREDICTION_HOUR);
   const [PREDICTION_MINUTE, setPredictionMinute] = useState(DEFAULT_PREDICTION_MINUTE);
+  const [pageTitle, setPageTitle] = useState('精准天地中特');
+  const [pageDescription, setPageDescription] = useState('天肖：【兔马猴猪牛龙】\n地肖：【蛇羊鸡狗鼠虎】');
 
   const [rulesVisible, setRulesVisible] = useState(false);
   const [quickActionsVisible, setQuickActionsVisible] = useState(false);
@@ -594,6 +623,8 @@ export default function LotteryPage() {
       setDrawMinute(cfg.drawMinute);
       setPredictionHour(cfg.predictionHour);
       setPredictionMinute(cfg.predictionMinute);
+      setPageTitle(cfg.tiandiPageTitle);
+      setPageDescription(cfg.tiandiPageDescription);
     });
   }, []);
 
@@ -981,21 +1012,12 @@ export default function LotteryPage() {
         <View style={styles.predictionSection}>
           {/* 标题 */}
           <View style={styles.predictionHeader}>
-            <Text style={styles.predictionTitle}>精准天地中特</Text>
+            <Text style={styles.predictionTitle}>{pageTitle}</Text>
           </View>
 
           {/* 天肖地肖说明 */}
           <View style={styles.legendContainer}>
-            <View style={styles.legendLeft}>
-              <Text style={styles.legendText}>
-                <Text style={styles.tianXiaoLabel}>天肖：</Text>
-                <Text style={styles.tianXiaoAnimals}>【兔马猴猪牛龙】</Text>
-              </Text>
-              <Text style={styles.legendText}>
-                <Text style={styles.diXiaoLabel}>地肖：</Text>
-                <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
-              </Text>
-            </View>
+            {renderDescriptionContent(pageDescription)}
           </View>
           
           {/* 表头 */}

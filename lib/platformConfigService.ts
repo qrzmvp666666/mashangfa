@@ -5,6 +5,8 @@ export interface PlatformConfig {
   drawMinute: number;
   predictionHour: number;
   predictionMinute: number;
+  tiandiPageTitle: string;
+  tiandiPageDescription: string;
 }
 
 // 硬编码默认值（仅在数据库加载失败时使用）
@@ -13,6 +15,8 @@ const DEFAULTS: PlatformConfig = {
   drawMinute: 35,
   predictionHour: 15,
   predictionMinute: 0,
+  tiandiPageTitle: '精准天地中特',
+  tiandiPageDescription: '天肖：【兔马猴猪牛龙】\n地肖：【蛇羊鸡狗鼠虎】',
 };
 
 // 缓存
@@ -44,6 +48,8 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
       drawMinute: parseInt(configMap['draw_minute'] || String(DEFAULTS.drawMinute), 10),
       predictionHour: parseInt(configMap['prediction_hour'] || String(DEFAULTS.predictionHour), 10),
       predictionMinute: parseInt(configMap['prediction_minute'] || String(DEFAULTS.predictionMinute), 10),
+      tiandiPageTitle: configMap['tiandi_page_title'] || DEFAULTS.tiandiPageTitle,
+      tiandiPageDescription: configMap['tiandi_page_description'] || DEFAULTS.tiandiPageDescription,
     };
 
     return cachedConfig;
@@ -59,4 +65,30 @@ export async function getPlatformConfig(): Promise<PlatformConfig> {
  */
 export function clearConfigCache() {
   cachedConfig = null;
+}
+
+export async function saveTiandiPageConfig(title: string, description: string) {
+  const rows = [
+    {
+      key: 'tiandi_page_title',
+      value: title.trim() || DEFAULTS.tiandiPageTitle,
+      description: '推荐页全局标题',
+    },
+    {
+      key: 'tiandi_page_description',
+      value: description.trim() || DEFAULTS.tiandiPageDescription,
+      description: '推荐页全局描述',
+    },
+  ];
+
+  const { error } = await supabase
+    .from('platform_config')
+    .upsert(rows, { onConflict: 'key' });
+
+  if (error) {
+    throw error;
+  }
+
+  clearConfigCache();
+  return getPlatformConfig();
 }

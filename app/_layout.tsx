@@ -37,6 +37,7 @@ export default function RootLayout() {
             >
             <Stack.Screen name="splash" />
             <Stack.Screen name="login" />
+            <Stack.Screen name="admin" />
             <Stack.Screen name="(tabs)" />
             <Stack.Screen 
                 name="qrcode" 
