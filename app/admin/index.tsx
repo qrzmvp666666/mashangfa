@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+﻿import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -45,7 +45,7 @@ const AdminRecommendationContent = ({ content }: { content: string | null | unde
   }
 
   // Use RenderHtml to render rich text correctly
-  if (/<[a-z][\s\S]*>/i.test(content)) {
+  if (content.indexOf(String.fromCharCode(60)) !== -1 && content.indexOf(String.fromCharCode(62)) !== -1) {
     return (
       <View style={{ flex: 1 }}>
         <RenderHtml
@@ -88,6 +88,8 @@ export default function AdminHomeScreen() {
   const [formId, setFormId] = useState<number | null>(null);
   const [formIssueNo, setFormIssueNo] = useState("");
   const [formContent, setFormContent] = useState("");
+  const [formSpecialAnimal, setFormSpecialAnimal] = useState("");
+  const [formSpecialNum, setFormSpecialNum] = useState("");
   const [isSavingForm, setIsSavingForm] = useState(false);
   const [formItemData, setFormItemData] = useState<AdminRecommendation | null>(null);
 
@@ -172,8 +174,20 @@ export default function AdminHomeScreen() {
   const handleEditClick = (item: AdminRecommendation) => {
     setFormMode("edit");
     setFormId(item.id);
-    setFormIssueNo(item.issue_no.replace("期", ""));
+    setFormIssueNo(item.issue_no.includes("期") ? item.issue_no : `${item.issue_no}期`);
     setFormContent(item.recommendation_content || "");
+    
+    // Parse the 1-to-1 or multiple results safely
+    let fetchedAnimal = "";
+    let fetchedNum = "";
+    if (item.lottery_results) {
+      const lr = Array.isArray(item.lottery_results) ? item.lottery_results[0] : item.lottery_results;
+      fetchedAnimal = lr?.special_animal || "";
+      fetchedNum = lr?.special_num ? lr.special_num.toString() : "";
+    }
+    setFormSpecialAnimal(fetchedAnimal);
+    setFormSpecialNum(fetchedNum);
+
     setFormItemData(item);
     setIsFormModalVisible(true);
   };
@@ -185,13 +199,15 @@ export default function AdminHomeScreen() {
       const match = latestItem.issue_no.match(/\d+/);
       if (match) {
         const num = parseInt(match[0], 10) + 1;
-        nextIssueNo = num.toString().padStart(latestItem.issue_no.replace(/\D/g, '').length || 3, "0");
+        nextIssueNo = num.toString().padStart(latestItem.issue_no.replace(/\D/g, '').length || 3, "0") + "期";
       }
     }
     setFormMode("create");
     setFormId(null);
     setFormIssueNo(nextIssueNo);
     setFormContent("");
+    setFormSpecialAnimal("");
+    setFormSpecialNum("");
     setFormItemData(null);
     setIsFormModalVisible(true);
   };
@@ -212,28 +228,32 @@ export default function AdminHomeScreen() {
     if (formMode === "edit" && formItemData) {
       const result = await saveAdminRecommendation(
         {
-          issue_no: formIssueNo,
+          issue_no: formIssueNo.includes("期") ? formIssueNo : `${formIssueNo}期`,
           issue_date: formItemData.issue_date,
           title: formItemData.title || "",
           description: formItemData.description || "",
           recommendation_content: formContent,
           is_visible: formItemData.is_visible,
+          special_animal: formSpecialAnimal,
+          special_num: formSpecialNum,
         },
         formId ?? undefined
       );
       error = result.error;
     } else {
-      const existingItem = items.find((item) => item.issue_no.replace("期", "") === formIssueNo);
+      const existingItem = items.find((item) => item.issue_no.replace("期", "") === formIssueNo.replace("期", ""));
       const now = new Date();
       const issueDate = existingItem ? existingItem.issue_date : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
       
       const result = await saveAdminRecommendation({
-        issue_no: formIssueNo,
+        issue_no: formIssueNo.includes("期") ? formIssueNo : `${formIssueNo}期`,
         issue_date: issueDate,
         title: existingItem?.title || "",
         description: existingItem?.description || "",
         recommendation_content: formContent,
         is_visible: true,
+        special_animal: formSpecialAnimal,
+        special_num: formSpecialNum,
       }, existingItem?.id);
       error = result.error;
     }
@@ -363,13 +383,20 @@ export default function AdminHomeScreen() {
               <Text
                 style={[
                   styles.tableHeaderText,
-                  styles.colContentLeft,
-                  { textAlign: "left", paddingLeft: 8 },
+                  styles.colContentLeft, { textAlign: "left", paddingLeft: 0 },
                 ]}
               >
                 推荐参考
               </Text>
-              <Text style={[styles.tableHeaderText, styles.colAction]}>
+              <Text
+                style={[
+                  styles.tableHeaderText,
+                  styles.colResult, { textAlign: "center" },
+                ]}
+              >
+                开奖结果
+              </Text>
+<Text style={[styles.tableHeaderText, styles.colAction, { textAlign: "center" }]}>
                 操作
               </Text>
             </View>
@@ -395,23 +422,37 @@ export default function AdminHomeScreen() {
                   <View style={styles.colContentLeft}>
                     <AdminRecommendationContent content={item.recommendation_content} />
                   </View>
+                  <View style={styles.colResult}>
+                    {(() => {
+                      const lr = Array.isArray(item.lottery_results) ? item.lottery_results[0] : item.lottery_results;
+                      if (!lr?.special_animal && !lr?.special_num) {
+                        return <Text style={styles.resultText}>待开奖</Text>;
+                      }
+                      return (
+                        <Text style={styles.resultText}>
+                          {lr.special_animal ? `${lr.special_animal} ` : ""}
+                          {lr.special_num ? lr.special_num : ""}
+                        </Text>
+                      );
+                    })()}
+                  </View>
                   <View
                     style={[
                       styles.colAction,
-                      { flexDirection: "row", justifyContent: "flex-end", gap: 6 },
+                      { flexDirection: "row", justifyContent: "center", gap: 6 },
                     ]}
                   >
                     <TouchableOpacity
                       style={styles.btnEdit}
                       onPress={() => handleEditClick(item)}
                     >
-                      <Text style={styles.btnTextLight}>编辑</Text>
+                      <Ionicons name="create-outline" size={18} color="#fff" />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.btnDelete}
                       onPress={() => handleDeleteClick(item)}
                     >
-                      <Text style={styles.btnTextLight}>删除</Text>
+                      <Ionicons name="trash-outline" size={18} color="#fff" />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -450,7 +491,7 @@ export default function AdminHomeScreen() {
                 >
                   <Picker.Item label="请选择期数" value="" />
                   {availableIssues.map((issue) => (
-                    <Picker.Item key={issue} label={issue + "期"} value={issue} />
+                    <Picker.Item key={issue} label={issue.includes("期") ? issue : issue + "期"} value={issue.includes("期") ? issue : issue + "期"} />
                   ))}
                 </Picker>
               </View>
@@ -464,6 +505,30 @@ export default function AdminHomeScreen() {
                   onChange={setFormContent}
                   placeholder="请输入推荐参考内容（可编辑颜色、底色和排版）"
                   minHeight={150}
+                />
+              </View>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.configLabel}>开奖生肖 (特码)</Text>
+                <TextInput
+                  style={[styles.configInput, { marginTop: 8 }]}
+                  value={formSpecialAnimal}
+                  onChangeText={setFormSpecialAnimal}
+                  placeholder="如：牛"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.configLabel}>开奖数字 (特码)</Text>
+                <TextInput
+                  style={[styles.configInput, { marginTop: 8 }]}
+                  value={formSpecialNum}
+                  onChangeText={setFormSpecialNum}
+                  placeholder="如：11"
+                  keyboardType="numeric"
+                  placeholderTextColor="#9ca3af"
                 />
               </View>
             </View>
@@ -595,19 +660,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
-  tableHeaderRow: {
-    flexDirection: "row",
-    backgroundColor: "#f3f4f6",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  tableHeaderRow: { flexDirection: "row", backgroundColor: "#f3f4f6", paddingVertical: 12, paddingHorizontal: 8,
     borderBottomWidth: 1,
     borderBottomColor: "#e5e7eb",
   },
   tableHeaderText: { fontSize: 14, fontWeight: "700", color: "#374151" },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  tableRow: { flexDirection: "row", paddingVertical: 14, paddingHorizontal: 8,
     alignItems: "center",
     borderBottomWidth: 1,
     borderBottomColor: "#f3f4f6",
@@ -615,39 +673,54 @@ const styles = StyleSheet.create({
 
   colIssue: { flex: 1, alignItems: "center", justifyContent: "center" },
   colContentLeft: {
-    flex: 3,
+    flex: 2.2,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-start",
     paddingHorizontal: 8,
   },
-  colAction: {
-    flex: 1,
+  colResult: {
+    flex: 1.5,
     alignItems: "center",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    paddingLeft: 0,
+  },
+  colAction: {
+    flex: 1.1,
+    alignItems: "center",
+    justifyContent: "center",
     flexDirection: "row",
   },
 
   issueNumberText: { fontSize: 14, color: "#1f2937", textAlign: "center" },
+  resultText: {
+    fontSize: 14,
+    color: "#4b5563",
+    fontWeight: "600",
+    textAlign: "center",
+  },
   referenceText: {
     fontSize: 14,
     color: "#1f2937",
     fontWeight: "500",
-    textAlign: "left",
+    textAlign: "center",
   },
 
   btnEdit: {
     backgroundColor: "#f59e0b",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
   btnDelete: {
     backgroundColor: "#ef4444",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginLeft: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    justifyContent: "center",
+    alignItems: "center",
   },
   btnSave: {
     backgroundColor: "#10b981",
@@ -756,3 +829,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+
+
+
+
+
+
+
+
+
+
+
+

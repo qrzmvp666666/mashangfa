@@ -12,6 +12,7 @@ export interface AdminUser {
 }
 
 export interface AdminRecommendation {
+  lottery_results?: { special_animal?: string; special_num?: number } | null | { special_animal?: string; special_num?: number }[];
   id: number;
   issue_no: string;
   issue_date: string;
@@ -25,6 +26,8 @@ export interface AdminRecommendation {
 }
 
 export interface AdminRecommendationInput {
+  special_animal?: string;
+  special_num?: string;
   issue_no: string;
   issue_date: string;
   title: string;
@@ -145,8 +148,31 @@ export async function fetchAdminRecommendations(): Promise<ServiceResult<AdminRe
       };
     }
 
+    const recs = (data || []) as AdminRecommendation[];
+    
+    if (recs.length > 0) {
+      const issueNos = recs.map(r => r.issue_no);
+      const { data: lotteryResults } = await supabase
+        .from('lottery_results')
+        .select('issue_no, special_animal, special_num')
+        .in('issue_no', issueNos);
+
+      if (lotteryResults && lotteryResults.length > 0) {
+        const resultMap = new Map(lotteryResults.map(l => [l.issue_no, l]));
+        recs.forEach(r => {
+          const lResult = resultMap.get(r.issue_no);
+          if (lResult) {
+            r.lottery_results = {
+              special_animal: lResult.special_animal,
+              special_num: lResult.special_num,
+            };
+          }
+        });
+      }
+    }
+
     return {
-      data: (data || []) as AdminRecommendation[],
+      data: recs,
       error: null,
     };
   } catch (error: any) {
@@ -212,6 +238,15 @@ export async function saveAdminRecommendation(
       };
     }
 
+    if (input.special_animal || input.special_num) {
+      await supabase.from('lottery_results').upsert({
+        issue_no: input.issue_no.trim(),
+        draw_date: input.issue_date.trim(),
+        special_animal: input.special_animal ? input.special_animal.trim() : null,
+        special_num: input.special_num ? parseInt(input.special_num, 10) : null,
+      }, { onConflict: 'issue_no' });
+    }
+
     return {
       data: data as AdminRecommendation,
       error: null,
@@ -248,10 +283,10 @@ export async function deleteAdminRecommendation(id: number): Promise<ServiceResu
   try {
     const { error } = await supabase.from('tiandi_recommendations').delete().eq('id', id);
     if (error) {
-      return { data: null, error: { message: toErrorMessage(error, 'É¾³ýÊ§°Ü') } };
+      return { data: null, error: { message: toErrorMessage(error, 'É¾ï¿½ï¿½Ê§ï¿½ï¿½') } };
     }
     return { data: null, error: null };
   } catch (error: any) {
-    return { data: null, error: { message: toErrorMessage(error, 'É¾³ýÊ§°Ü') } };
+    return { data: null, error: { message: toErrorMessage(error, 'É¾ï¿½ï¿½Ê§ï¿½ï¿½') } };
   }
 }
