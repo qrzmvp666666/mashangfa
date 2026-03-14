@@ -12,12 +12,14 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import Toast from "../../components/Toast";
 import RichTextEditor from "../../components/RichTextEditor";
+import RenderHtml from "react-native-render-html";
 import {
   getPlatformConfig,
   saveTiandiPageConfig,
@@ -34,6 +36,37 @@ import {
 function formatDate(dateString: string) {
   return dateString || "--";
 }
+
+const AdminRecommendationContent = ({ content }: { content: string | null | undefined }) => {
+  const { width } = useWindowDimensions();
+  
+  if (!content) {
+    return <Text style={styles.referenceText}>待开奖</Text>;
+  }
+
+  // Use RenderHtml to render rich text correctly
+  if (/<[a-z][\s\S]*>/i.test(content)) {
+    return (
+      <View style={{ flex: 1 }}>
+        <RenderHtml
+          contentWidth={width > 800 ? 500 : width - 100} 
+          source={{ html: content }}
+          baseStyle={{ fontSize: 13, color: "#333", margin: 0, padding: 0 }}
+          tagsStyles={{
+            p: { margin: 0, padding: 0 },
+          }}
+        />
+      </View>
+    );
+  }
+
+  // Fallback
+  return (
+    <Text style={[styles.referenceText, { flex: 1 }]} numberOfLines={0}>
+      {content}
+    </Text>
+  );
+};
 
 export default function AdminHomeScreen() {
   const router = useRouter();
@@ -360,9 +393,7 @@ export default function AdminHomeScreen() {
                     </Text>
                   </View>
                   <View style={styles.colContentLeft}>
-                    <Text style={[styles.referenceText, { flex: 1 }]} numberOfLines={0}>
-                      {item.recommendation_content ? item.recommendation_content.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').replace(/\n/g, '').substring(0, 30) + (item.recommendation_content.length > 30 ? '...' : '') : "待开奖"}
-                    </Text>
+                    <AdminRecommendationContent content={item.recommendation_content} />
                   </View>
                   <View
                     style={[
