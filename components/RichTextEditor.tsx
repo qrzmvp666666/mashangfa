@@ -10,12 +10,11 @@ if (Platform.OS === 'web') {
 export default function RichTextEditor({ value, onChange, placeholder }: any) {
   const modules = useMemo(() => ({
     toolbar: [
-      [{ 'header': [1, 2, 3, false] }, { 'size': ['small', false, 'large', 'huge'] }],
-      ['bold', 'italic', 'underline', 'strike'],
+      ['bold', 'italic'],
       [{ 'color': [] }, { 'background': [] }],
       [{ 'list': 'ordered' }, { 'list': 'bullet' }],
       [{ 'align': [] }],
-      ['clean']
+      []
     ],
   }), []);
 

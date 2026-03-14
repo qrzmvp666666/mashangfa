@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,10 +9,8 @@ const DEFAULT_H5_URL = 'http://localhost:5173/';
 export default function PurchaseH5Page() {
   const router = useRouter();
   const params = useLocalSearchParams<{ planId?: string; planName?: string; phone?: string; source?: string }>();
-  const [isIframeLoaded, setIsIframeLoaded] = useState(false);
-  const [useExternalFallback, setUseExternalFallback] = useState(false);
-  const hasAutoOpenedRef = useRef(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [loading, setLoading] = useState(true);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const baseUrl = process.env.EXPO_PUBLIC_PURCHASE_H5_URL || DEFAULT_H5_URL;
 
@@ -28,52 +26,31 @@ export default function PurchaseH5Page() {
       if (params.phone) {
         url.searchParams.set('phone', String(params.phone));
       }
-      url.searchParams.set('source', 'A');
+      url.searchParams.set('source', params.source ? String(params.source) : 'A');
       return url.toString();
     } catch {
       return DEFAULT_H5_URL;
     }
-  }, [baseUrl, params.planId, params.planName, params.phone]);
-
-  const openExternal = () => {
-    if (typeof window !== 'undefined') {
-      window.open(finalUrl, '_blank', 'noopener,noreferrer');
-    }
-  };
+  }, [baseUrl, params.planId, params.planName, params.phone, params.source]);
 
   useEffect(() => {
-    if (Platform.OS !== 'web') {
-      return;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      timeoutRef.current = setTimeout(() => {
+        setLoading((currentLoading) => {
+          if (currentLoading) {
+            window.location.replace(finalUrl);
+          }
+          return currentLoading;
+        });
+      }, 5000);
     }
-
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    setIsIframeLoaded(false);
-    setUseExternalFallback(false);
-    hasAutoOpenedRef.current = false;
-
-    timeoutRef.current = setTimeout(() => {
-      setUseExternalFallback(true);
-    }, 7000);
-
+    
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
       }
     };
   }, [finalUrl]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' || !useExternalFallback || hasAutoOpenedRef.current) {
-      return;
-    }
-    hasAutoOpenedRef.current = true;
-    openExternal();
-  }, [useExternalFallback, finalUrl]);
 
   if (Platform.OS !== 'web') {
     return (
@@ -97,25 +74,16 @@ export default function PurchaseH5Page() {
     );
   }
 
-  const iframeElement = React.createElement('iframe', {
+  // Use createElement for iframe to avoid TypeScript errors in React Native
+  const IframeComponent = React.createElement('iframe', {
     src: finalUrl,
-    style: styles.iframe as any,
-    allow: 'payment *; fullscreen *',
+    style: { flex: 1, width: '100%', height: '100%', border: 'none' },
     onLoad: () => {
+      setLoading(false);
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
       }
-      setIsIframeLoaded(true);
-      setUseExternalFallback(false);
-    },
-    onError: () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      setUseExternalFallback(true);
-    },
+    }
   });
 
   return (
@@ -132,22 +100,14 @@ export default function PurchaseH5Page() {
         <Text style={styles.headerTitle}>立即购买</Text>
         <View style={{ width: 24 }} />
       </LinearGradient>
-      <View style={styles.iframeContainer}>
-        {!useExternalFallback && iframeElement}
-
-        {useExternalFallback && (
-          <View style={styles.fallbackContainer}>
-            <Text style={styles.fallbackTitle}>页面加载较慢或证书异常</Text>
-            <Text style={styles.fallbackDesc}>已尝试为你打开外部浏览器，你也可以手动重新打开。</Text>
-            <TouchableOpacity onPress={openExternal} style={styles.fallbackButton}>
-              <Text style={styles.fallbackButtonText}>在新窗口打开支付页</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {!isIframeLoaded && !useExternalFallback && (
+      
+      <View style={{ flex: 1, position: 'relative' }}>
+        {IframeComponent}
+        
+        {loading && (
           <View style={styles.loadingOverlay}>
-            <Text style={styles.loadingText}>正在加载支付页...</Text>
+            <ActivityIndicator size="large" color="#3a6cee" />
+            <Text style={styles.loadingText}>正在加载支付页面...</Text>
           </View>
         )}
       </View>
@@ -175,55 +135,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
-  iframeContainer: {
+  redirectContainer: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  iframe: {
-    width: '100%',
-    height: '100%',
-    borderWidth: 0,
-  },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#fff',
+    paddingHorizontal: 24,
   },
-  loadingText: {
+  redirectText: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 16,
   },
-  fallbackContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    gap: 12,
-  },
-  fallbackTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  fallbackDesc: {
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  fallbackButton: {
-    marginTop: 8,
+  redirectButton: {
     paddingHorizontal: 18,
     paddingVertical: 10,
     borderRadius: 20,
     backgroundColor: '#3a6cee',
   },
-  fallbackButtonText: {
+  redirectButtonText: {
     color: '#fff',
     fontSize: 14,
     fontWeight: '600',
@@ -236,6 +166,18 @@ const styles = StyleSheet.create({
   },
   unsupportedText: {
     fontSize: 16,
+    color: '#666',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
     color: '#666',
   },
 });
