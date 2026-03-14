@@ -17,6 +17,7 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 import Toast from "../../components/Toast";
+import RichTextEditor from "../../components/RichTextEditor";
 import {
   getPlatformConfig,
   saveTiandiPageConfig,
@@ -297,14 +298,10 @@ export default function AdminHomeScreen() {
 
           <View style={styles.configFormGroup}>
             <Text style={styles.configLabel}>描述</Text>
-            <TextInput
-              style={[styles.configInput, styles.configTextarea]}
+            <RichTextEditor
               value={pageDescription}
-              onChangeText={setPageDescription}
-              placeholder="支持多行，前台将逐行展示"
-              placeholderTextColor="#9ca3af"
-              multiline
-              textAlignVertical="top"
+              onChange={setPageDescription}
+              placeholder="支持多行，可编辑颜色，前台将逐行展示"
             />
           </View>
         </View>

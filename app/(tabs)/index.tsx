@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal, Image, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, ScrollView, Animated, Modal, Image, Alert, Platform, useWindowDimensions } from 'react-native';
+import RenderHtml from 'react-native-render-html';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../contexts/AuthContext';
@@ -418,7 +419,9 @@ const renderPredictionContent = (content: string) => {
   );
 };
 
-const renderDescriptionContent = (description?: string | null) => {
+const DescriptionContent = ({ description }: { description?: string | null }) => {
+  const { width } = useWindowDimensions();
+  
   if (!description || !description.trim()) {
     return (
       <View style={styles.legendLeft}>
@@ -430,6 +433,22 @@ const renderDescriptionContent = (description?: string | null) => {
           <Text style={styles.diXiaoLabel}>地肖：</Text>
           <Text style={styles.diXiaoAnimals}>【蛇羊鸡狗鼠虎】</Text>
         </Text>
+      </View>
+    );
+  }
+
+  // If description contains HTML tags
+  if (/<[a-z][\s\S]*>/i.test(description)) {
+    return (
+      <View style={styles.legendLeft}>
+        <RenderHtml
+          contentWidth={width - 32} // padding offset
+          source={{ html: description }}
+          baseStyle={{ fontSize: 13, color: '#333333', lineHeight: 22 }}
+          tagsStyles={{
+            p: { margin: 0, padding: 0 }
+          }}
+        />
       </View>
     );
   }
@@ -1017,7 +1036,7 @@ export default function LotteryPage() {
 
           {/* 天肖地肖说明 */}
           <View style={styles.legendContainer}>
-            {renderDescriptionContent(pageDescription)}
+            <DescriptionContent description={pageDescription} />
           </View>
           
           {/* 表头 */}
