@@ -244,3 +244,14 @@ export function subscribeToAdminRecommendations(onUpdate: () => void) {
     supabase.removeChannel(channel);
   };
 }
+export async function deleteAdminRecommendation(id: number): Promise<ServiceResult<null>> {
+  try {
+    const { error } = await supabase.from('tiandi_recommendations').delete().eq('id', id);
+    if (error) {
+      return { data: null, error: { message: toErrorMessage(error, 'É¾³ýÊ§°Ü') } };
+    }
+    return { data: null, error: null };
+  } catch (error: any) {
+    return { data: null, error: { message: toErrorMessage(error, 'É¾³ýÊ§°Ü') } };
+  }
+}

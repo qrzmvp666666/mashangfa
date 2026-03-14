@@ -1,6 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Modal,
+  Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
@@ -9,76 +12,104 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  useWindowDimensions,
-} from 'react-native';
-import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import Toast from '../../components/Toast';
-import { getPlatformConfig, saveTiandiPageConfig } from '../../lib/platformConfigService';
+} from "react-native";
+import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
+import Toast from "../../components/Toast";
+import {
+  getPlatformConfig,
+  saveTiandiPageConfig,
+} from "../../lib/platformConfigService";
 import {
   AdminRecommendation,
-  AdminUser,
   ensureAdminAccess,
   fetchAdminRecommendations,
-  signOutAdmin,
   subscribeToAdminRecommendations,
-} from '../../lib/adminService';
+  saveAdminRecommendation,
+  deleteAdminRecommendation,
+} from "../../lib/adminService";
 
 function formatDate(dateString: string) {
-  return dateString || '--';
+  return dateString || "--";
 }
 
 export default function AdminHomeScreen() {
   const router = useRouter();
-  const { width } = useWindowDimensions();
-  const isDesktop = width >= 960;
 
   const [items, setItems] = useState<AdminRecommendation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
-  const [pageTitle, setPageTitle] = useState('');
-  const [pageDescription, setPageDescription] = useState('');
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastType, setToastType] = useState<
+    "success" | "error" | "warning" | "info"
+  >("info");
+  const [pageTitle, setPageTitle] = useState("");
+  const [pageDescription, setPageDescription] = useState("");
   const [savingPageConfig, setSavingPageConfig] = useState(false);
+
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editIssueNo, setEditIssueNo] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [savingId, setSavingId] = useState<number | null>(null);
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [newIssueNo, setNewIssueNo] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [savingNew, setSavingNew] = useState(false);
+
+  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<AdminRecommendation | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const visibleItems = items.filter(
-    (item) => item.is_visible && Boolean(item.recommendation_content?.trim())
+    (item) => item.is_visible && Boolean(item.recommendation_content?.trim()),
   );
 
-  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
-    setToastMessage(message);
-    setToastType(type);
-    setToastVisible(true);
-  }, []);
+  const availableIssues = items
+    .filter((item) => Boolean(item.description?.trim()))
+    .map((item) => item.issue_no.replace("期", ""));
 
-  const loadData = useCallback(async (showRefreshing = false) => {
-    if (showRefreshing) {
-      setRefreshing(true);
-    }
+  const showToast = useCallback(
+    (message: string, type: "success" | "error" | "warning" | "info") => {
+      setToastMessage(message);
+      setToastType(type);
+      setToastVisible(true);
+    },
+    [],
+  );
 
-    const accessResult = await ensureAdminAccess();
-    if (accessResult.error || !accessResult.data) {
-      router.replace('/admin/login');
+  const loadData = useCallback(
+    async (showRefreshing = false) => {
+      if (showRefreshing) {
+        setRefreshing(true);
+      }
+
+      const accessResult = await ensureAdminAccess();
+      if (accessResult.error || !accessResult.data) {
+        router.replace("/admin/login");
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      const listResult = await fetchAdminRecommendations();
+      if (listResult.error) {
+        showToast(listResult.error.message, "error");
+      } else {
+        setItems(listResult.data || []);
+      }
+
+      const pageConfig = await getPlatformConfig();
+      setPageTitle(pageConfig.tiandiPageTitle);
+      setPageDescription(pageConfig.tiandiPageDescription);
+
       setLoading(false);
       setRefreshing(false);
-      return;
-    }
-
-    const listResult = await fetchAdminRecommendations();
-    if (listResult.error) {
-      showToast(listResult.error.message, 'error');
-    } else {
-      setItems(listResult.data || []);
-    }
-
-    const pageConfig = await getPlatformConfig();
-    setPageTitle(pageConfig.tiandiPageTitle);
-    setPageDescription(pageConfig.tiandiPageDescription);
-
-    setLoading(false);
-    setRefreshing(false);
-  }, [router, showToast]);
+    },
+    [router, showToast],
+  );
 
   useEffect(() => {
     loadData();
@@ -92,30 +123,134 @@ export default function AdminHomeScreen() {
     };
   }, [loadData]);
 
-  const handleSignOut = async () => {
-    await signOutAdmin();
-    router.replace('/admin/login');
-  };
-
   const handleSavePageConfig = async () => {
     setSavingPageConfig(true);
     try {
       const config = await saveTiandiPageConfig(pageTitle, pageDescription);
       setPageTitle(config.tiandiPageTitle);
       setPageDescription(config.tiandiPageDescription);
-      showToast('标题和描述已保存', 'success');
+      showToast("标题和描述已保存", "success");
     } catch (error: any) {
-      showToast(error?.message || '保存标题和描述失败', 'error');
+      showToast(error?.message || "保存失败", "error");
     } finally {
       setSavingPageConfig(false);
     }
+  };
+
+  const handleEditClick = (item: AdminRecommendation) => {
+    setEditingId(item.id);
+    setEditIssueNo(item.issue_no.replace("期", ""));
+    setEditContent(item.recommendation_content || "");
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveEdit = async (item: AdminRecommendation) => {
+    setSavingId(item.id);
+    const { error } = await saveAdminRecommendation(
+      {
+        issue_no: editIssueNo,
+        issue_date: item.issue_date,
+        title: item.title || "",
+        description: item.description || "",
+        recommendation_content: editContent,
+        is_visible: item.is_visible,
+      },
+      item.id,
+    );
+
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      showToast("更新成功", "success");
+      setEditingId(null);
+      loadData();
+    }
+    setSavingId(null);
+  };
+
+  const handleCreateClick = () => {
+    setIsCreating(true);
+    let nextIssueNo = "";
+    if (visibleItems.length > 0) {
+      const latestItem = visibleItems[0];
+      const match = latestItem.issue_no.match(/\d+/);
+      if (match) {
+        const num = parseInt(match[0], 10) + 1;
+        nextIssueNo = num.toString().padStart(latestItem.issue_no.replace(/\D/g, '').length || 3, "0");
+      }
+    }
+    setNewIssueNo(nextIssueNo);
+    setNewContent("");
+  };
+
+  const handleCancelCreate = () => {
+    setIsCreating(false);
+  };
+
+  const handleSaveCreate = async () => {
+    if (!newIssueNo.trim()) {
+      showToast("请选择期号", "warning");
+      return;
+    }
+    setSavingNew(true);
+    
+    const existingItem = items.find((item) => item.issue_no.replace("期", "") === newIssueNo);
+    const now = new Date();
+    const issueDate = existingItem ? existingItem.issue_date : `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    
+    const { error } = await saveAdminRecommendation({
+      issue_no: newIssueNo,
+      issue_date: issueDate,
+      title: existingItem?.title || "",
+      description: existingItem?.description || "",
+      recommendation_content: newContent,
+      is_visible: true,
+    }, existingItem?.id);
+    
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      showToast("创建成功", "success");
+      setIsCreating(false);
+      loadData();
+    }
+    setSavingNew(false);
+  };
+
+  const handleDeleteClick = (item: AdminRecommendation) => {
+    setItemToDelete(item);
+    setIsDeleteModalVisible(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete) return;
+    setIsDeleting(true);
+    const { error } = await deleteAdminRecommendation(itemToDelete.id);
+    setIsDeleting(false);
+    setIsDeleteModalVisible(false);
+    setItemToDelete(null);
+
+    if (error) {
+      showToast(error.message, "error");
+    } else {
+      showToast("删除成功", "success");
+      loadData();
+    }
+  };
+
+  const cancelDelete = () => {
+    setIsDeleteModalVisible(false);
+    setItemToDelete(null);
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>正在加载后台数据...</Text>
+        <Text style={styles.loadingText}>正加载后台数据...</Text>
       </SafeAreaView>
     );
   }
@@ -124,12 +259,29 @@ export default function AdminHomeScreen() {
     <SafeAreaView style={styles.page}>
       <ScrollView
         contentContainerStyle={styles.pageContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+          />
+        }
       >
-        <View style={[styles.configCard, isDesktop && styles.configCardDesktop]}>
-          <View style={styles.configHeader}>
-            <Text style={styles.configTitle}>全局页面文案</Text>
-            <Text style={styles.configSubtitle}>这里单独维护前台标题和描述，不再跟随每一期变化。</Text>
+        <View style={styles.configCard}>
+          <View style={styles.configHeaderRow}>
+            <View style={styles.configHeader}>
+              <Text style={styles.configTitle}>全局页面文案</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.configSaveButton}
+              onPress={handleSavePageConfig}
+              disabled={savingPageConfig}
+            >
+              {savingPageConfig ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.configSaveButtonText}>保存</Text>
+              )}
+            </TouchableOpacity>
           </View>
 
           <View style={styles.configFormGroup}>
@@ -155,101 +307,218 @@ export default function AdminHomeScreen() {
               textAlignVertical="top"
             />
           </View>
-
-          <TouchableOpacity style={styles.configSaveButton} onPress={handleSavePageConfig} disabled={savingPageConfig}>
-            {savingPageConfig ? <ActivityIndicator color="#fff" /> : <Text style={styles.configSaveButtonText}>保存标题和描述</Text>}
-          </TouchableOpacity>
         </View>
 
-        <View style={styles.tableSectionHeader}>
-          <View>
-            <Text style={styles.tableSectionTitle}>期次列表</Text>
-            <Text style={styles.tableSectionSubtitle}>仅展示“展示中且已填写预测内容”的期次，并按最新一期倒序展示。</Text>
+        <View style={styles.listCard}>
+          <View style={styles.tableSectionHeader}>
+            <View style={styles.tableSectionTextContainer}>
+              <Text style={styles.tableSectionTitle}>期次列表</Text>
+            </View>
+            <View style={styles.tableHeaderActions}>
+              <TouchableOpacity
+                style={styles.tableAddButton}
+                onPress={handleCreateClick}
+              >
+                <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                <Text style={styles.tableAddButtonText}>新增一期</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.tableHeaderActions}>
-            <TouchableOpacity style={styles.tableAddButton} onPress={() => router.push('/admin/recommendations/new')}>
-              <Ionicons name="add-circle-outline" size={18} color="#fff" />
-              <Text style={styles.tableAddButtonText}>新增一期</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.tableLogoutButton} onPress={handleSignOut}>
-              <Ionicons name="log-out-outline" size={18} color="#2563eb" />
-              <Text style={styles.tableLogoutButtonText}>退出</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {isDesktop ? (
           <View style={styles.tableCard}>
             <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderText, styles.colIssue]}>期号</Text>
-              <Text style={[styles.tableHeaderText, styles.colDate]}>日期</Text>
-              <Text style={[styles.tableHeaderText, styles.colTitle]}>内容摘要</Text>
-              <Text style={[styles.tableHeaderText, styles.colStatus]}>状态</Text>
-              <Text style={[styles.tableHeaderText, styles.colUpdated]}>更新时间</Text>
-              <Text style={[styles.tableHeaderText, styles.colAction]}>操作</Text>
+              <Text
+                style={[
+                  styles.tableHeaderText,
+                  styles.colIssue,
+                  { textAlign: "center" },
+                ]}
+              >
+                期数
+              </Text>
+              <Text
+                style={[
+                  styles.tableHeaderText,
+                  styles.colContentLeft,
+                  { textAlign: "left", paddingLeft: 8 },
+                ]}
+              >
+                推荐参考
+              </Text>
+              <Text style={[styles.tableHeaderText, styles.colAction]}>
+                操作
+              </Text>
             </View>
 
-            {visibleItems.map((item) => (
-              <View key={item.id} style={styles.tableRow}>
-                <Text style={[styles.tableCellText, styles.colIssue]}>{item.issue_no}</Text>
-                <Text style={[styles.tableCellText, styles.colDate]}>{formatDate(item.issue_date)}</Text>
-                <View style={styles.colTitle}>
-                  <Text style={styles.tableCellTitle} numberOfLines={1}>{item.recommendation_content || '未填写推荐内容'}</Text>
-                  <Text style={styles.tableCellDescription} numberOfLines={2}>标题与描述请在上方“全局页面文案”中配置</Text>
-                </View>
-                <View style={styles.colStatus}>
-                  <View style={[styles.statusBadge, item.is_visible ? styles.statusVisible : styles.statusHidden]}>
-                    <Text style={[styles.statusBadgeText, item.is_visible ? styles.statusVisibleText : styles.statusHiddenText]}>
-                      {item.is_visible ? '展示中' : '已隐藏'}
-                    </Text>
+            {isCreating && (
+              <View style={[styles.tableRow, { backgroundColor: "#fff" }]}>
+                <View style={styles.colIssue}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+                    <View style={styles.pickerWrapper}>
+                      <Picker
+                        selectedValue={newIssueNo}
+                        onValueChange={(itemValue) => setNewIssueNo(itemValue ? itemValue.toString() : "")}
+                        style={styles.pickerStyle}
+                      >
+                        <Picker.Item label="请选择" value="" />
+                        {availableIssues.map((issue) => (
+                          <Picker.Item key={issue} label={`${issue}期`} value={issue} />
+                        ))}
+                      </Picker>
+                    </View>
                   </View>
                 </View>
-                <Text style={[styles.tableCellText, styles.colUpdated]}>{formatDate(item.updated_at).slice(0, 16).replace('T', ' ')}</Text>
+                <View style={styles.colContentLeft}>
+                  <TextInput
+                    style={[
+                      styles.editInputLine,
+                      { flex: 1, textAlign: "left", paddingHorizontal: 8 },
+                    ]}
+                    value={newContent}
+                    onChangeText={setNewContent}
+                    placeholder="请输入推荐参考内容"
+                    multiline={false}
+                  />
+                </View>
                 <View style={styles.colAction}>
-                  <TouchableOpacity style={styles.inlineActionButton} onPress={() => router.push(`/admin/recommendations/${item.id}`)}>
-                    <Text style={styles.inlineActionText}>编辑</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            {visibleItems.length === 0 && (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>暂无可展示期次</Text>
-                <Text style={styles.emptyText}>请先新增一期，并确保已填写预测内容且状态为展示中。</Text>
-              </View>
-            )}
-          </View>
-        ) : (
-          <View style={styles.mobileList}>
-            {visibleItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.mobileCard}
-                onPress={() => router.push(`/admin/recommendations/${item.id}`)}
-              >
-                <View style={styles.mobileCardHeader}>
-                  <Text style={styles.mobileCardIssue}>{item.issue_no}</Text>
-                  <View style={[styles.statusBadge, item.is_visible ? styles.statusVisible : styles.statusHidden]}>
-                    <Text style={[styles.statusBadgeText, item.is_visible ? styles.statusVisibleText : styles.statusHiddenText]}>
-                      {item.is_visible ? '展示中' : '已隐藏'}
-                    </Text>
+                  <View style={{ flexDirection: "row", gap: 6 }}>
+                    <TouchableOpacity
+                      style={styles.btnSave}
+                      onPress={handleSaveCreate}
+                      disabled={savingNew}
+                    >
+                      {savingNew ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.btnTextLight}>保存</Text>
+                      )}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.btnCancel}
+                      onPress={handleCancelCreate}
+                      disabled={savingNew}
+                    >
+                      <Text style={styles.btnTextDark}>取消</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <Text style={styles.mobileCardTitle} numberOfLines={2}>{item.recommendation_content || '未填写推荐内容'}</Text>
-                <Text style={styles.mobileCardDescription} numberOfLines={2}>标题与描述请在上方全局文案中配置</Text>
-                <Text style={styles.mobileCardMeta}>日期：{formatDate(item.issue_date)}</Text>
-              </TouchableOpacity>
-            ))}
+              </View>
+            )}
+
+            {visibleItems.map((item, index) => {
+              const isEditing = editingId === item.id;
+              const isSaving = savingId === item.id;
+              const rowBackgroundColor = index % 2 === 0 ? "#fafafa" : "#fff";
+
+              return (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.tableRow,
+                    { backgroundColor: rowBackgroundColor },
+                  ]}
+                >
+                  {isEditing ? (
+                    <>
+                      <View style={styles.colIssue}>
+                        <View
+                          style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}
+                        >
+                          <View style={styles.pickerWrapper}>
+                            <Picker
+                              selectedValue={editIssueNo}
+                              onValueChange={(itemValue) => setEditIssueNo(itemValue ? itemValue.toString() : "")}
+                              style={styles.pickerStyle}
+                            >
+                              <Picker.Item label="请选择" value="" />
+                              {availableIssues.map((issue) => (
+                                <Picker.Item key={issue} label={`${issue}期`} value={issue} />
+                              ))}
+                            </Picker>
+                          </View>
+                        </View>
+                      </View>
+                      <View style={styles.colContentLeft}>
+                        <TextInput
+                          style={[
+                            styles.editInputLine,
+                            { flex: 1, textAlign: "left", paddingHorizontal: 8 },
+                          ]}
+                          value={editContent}
+                          onChangeText={setEditContent}
+                          placeholder="请输入推荐参考内容"
+                          multiline={false}
+                        />
+                      </View>
+                      <View style={styles.colAction}>
+                        <View style={{ flexDirection: "row", gap: 6 }}>
+                          <TouchableOpacity
+                            style={styles.btnSave}
+                            onPress={() => handleSaveEdit(item)}
+                            disabled={isSaving}
+                          >
+                            {isSaving ? (
+                              <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                              <Text style={styles.btnTextLight}>保存</Text>
+                            )}
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.btnCancel}
+                            onPress={handleCancelEdit}
+                            disabled={isSaving}
+                          >
+                            <Text style={styles.btnTextDark}>取消</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    </>
+                  ) : (
+                    <>
+                      <View style={styles.colIssue}>
+                        <Text style={styles.issueNumberText}>
+                          {item.issue_no.includes("期")
+                            ? item.issue_no
+                            : item.issue_no + "期"}
+                        </Text>
+                      </View>
+                      <View style={styles.colContentLeft}>
+                        <Text style={[styles.referenceText, { flex: 1 }]} numberOfLines={0}>
+                          {item.recommendation_content || "待开奖"}
+                        </Text>
+                      </View>
+                      <View
+                        style={[
+                          styles.colAction,
+                          { flexDirection: "row", justifyContent: "flex-end" },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          style={styles.btnEdit}
+                          onPress={() => handleEditClick(item)}
+                        >
+                          <Text style={styles.btnTextLight}>编辑</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.btnDelete}
+                          onPress={() => handleDeleteClick(item)}
+                        >
+                          <Text style={styles.btnTextLight}>删除</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  )}
+                </View>
+              );
+            })}
 
             {visibleItems.length === 0 && (
               <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>暂无可展示期次</Text>
-                <Text style={styles.emptyText}>请先新增一期，并确保已填写预测内容且状态为展示中。</Text>
+                <Text style={styles.emptyTitle}>暂无展示内容</Text>
               </View>
             )}
           </View>
-        )}
+        </View>
       </ScrollView>
 
       <Toast
@@ -258,265 +527,269 @@ export default function AdminHomeScreen() {
         type={toastType}
         onHide={() => setToastVisible(false)}
       />
+
+      <Modal visible={isDeleteModalVisible} transparent={true} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>确认删除</Text>
+            <Text style={styles.modalMessage}>确定要删除这一期内容吗？{"\n"}删除后前台将不再展示。</Text>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={cancelDelete}
+                disabled={isDeleting}
+              >
+                <Text style={styles.modalCancelBtnText}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={confirmDelete}
+                disabled={isDeleting}
+              >
+                {isDeleting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.modalConfirmBtnText}>确定</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  page: {
-    flex: 1,
-    backgroundColor: '#f5f7fb',
-  },
-  pageContent: {
+  page: { flex: 1, backgroundColor: "#f2f5f9" },
+  pageContent: { padding: 16, gap: 16 },
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { marginTop: 12, color: "#666" },
+
+  configCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
     padding: 16,
-    gap: 16,
-  },
-  tableSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 12,
-    flexWrap: 'wrap',
   },
-  tableSectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
+  configHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
   },
-  tableSectionSubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  tableHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
-  tableAddButton: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: '#2563eb',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  tableAddButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  tableLogoutButton: {
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+  configHeader: { gap: 4, flex: 1 },
+  configTitle: { fontSize: 18, fontWeight: "700", color: "#1f2937" },
+  configSubtitle: { fontSize: 13, color: "#6b7280" },
+  configFormGroup: { gap: 6 },
+  configLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  configInput: {
     borderWidth: 1,
-    borderColor: '#93c5fd',
-    backgroundColor: '#fff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    padding: 10,
+    fontSize: 14,
+    backgroundColor: "#f9fafb",
   },
-  tableLogoutButtonText: {
-    color: '#2563eb',
-    fontWeight: '700',
+  configTextarea: { minHeight: 80 },
+  configSaveButton: {
+    backgroundColor: "#3b82f6",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
   },
+  configSaveButtonText: { color: "#fff", fontWeight: "600", fontSize: 14 },
+
+  listCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, gap: 12 },
+
+  tableSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "nowrap",
+    gap: 12,
+  },
+  tableSectionTextContainer: { flex: 1 },
+  tableSectionTitle: { fontSize: 18, fontWeight: "700", color: "#1f2937" },
+  tableSectionSubtitle: { fontSize: 13, color: "#6b7280", marginTop: 2 },
+  tableHeaderActions: { flexDirection: "row", gap: 8, alignItems: "center" },
+
+  tableAddButton: {
+    backgroundColor: "#3b82f6",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  tableAddButtonText: { color: "#fff", fontSize: 13, fontWeight: "600" },
+
   tableCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    overflow: 'hidden',
+    backgroundColor: "#fff",
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
   },
   tableHeaderRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
+    flexDirection: "row",
+    backgroundColor: "#f3f4f6",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
   },
-  tableHeaderText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1e3a8a',
-  },
+  tableHeaderText: { fontSize: 14, fontWeight: "700", color: "#374151" },
   tableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#eef2ff',
+    flexDirection: "row",
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f3f4f6",
   },
-  colIssue: { flex: 1.1 },
-  colDate: { flex: 1.2 },
-  colTitle: { flex: 2.6 },
-  colStatus: { flex: 1.2 },
-  colUpdated: { flex: 1.6 },
-  colAction: { flex: 0.9, alignItems: 'flex-end' },
-  tableCellText: {
-    fontSize: 13,
-    color: '#374151',
+
+  colIssue: { flex: 1, alignItems: "center", justifyContent: "center" },
+  colContentLeft: {
+    flex: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    paddingHorizontal: 8,
   },
-  tableCellTitle: {
+  colAction: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "flex-end",
+    flexDirection: "row",
+  },
+
+  issueNumberText: { fontSize: 14, color: "#1f2937", textAlign: "center" },
+  referenceText: {
     fontSize: 14,
-    fontWeight: '700',
-    color: '#111827',
+    color: "#1f2937",
+    fontWeight: "500",
+    textAlign: "left",
   },
-  tableCellDescription: {
-    marginTop: 4,
-    fontSize: 12,
-    color: '#6b7280',
-    lineHeight: 18,
+
+  btnEdit: {
+    backgroundColor: "#f59e0b",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+  btnDelete: {
+    backgroundColor: "#ef4444",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
+    marginLeft: 8,
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
+  btnSave: {
+    backgroundColor: "#10b981",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
-  statusVisible: {
-    backgroundColor: '#dcfce7',
+  btnCancel: {
+    backgroundColor: "#e5e7eb",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 4,
   },
-  statusVisibleText: {
-    color: '#166534',
+  btnTextLight: { color: "#fff", fontSize: 13, fontWeight: "600" },
+  btnTextDark: { color: "#374151", fontSize: 13, fontWeight: "600" },
+
+  editInputLine: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    fontSize: 14,
+    color: "#1f2937",
+    backgroundColor: "#fff",
   },
-  statusHidden: {
-    backgroundColor: '#fee2e2',
+
+  emptyState: { padding: 32, alignItems: "center" },
+  emptyTitle: { fontSize: 14, color: "#9ca3af" },
+
+  pickerWrapper: {
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 4,
+    backgroundColor: "#fff",
+    height: 34,
+    justifyContent: "center",
+    overflow: "hidden",
+    minWidth: 80,
   },
-  statusHiddenText: {
-    color: '#b91c1c',
+  pickerStyle: {
+    height: 34,
+    width: "100%",
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    fontSize: 14,
+    color: "#1f2937",
+    outlineStyle: "none",
+  } as any,
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
-  inlineActionButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: '#dbeafe',
+  modalContent: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 24,
+    width: "100%",
+    maxWidth: 320,
+    gap: 16,
   },
-  inlineActionText: {
-    color: '#1d4ed8',
-    fontWeight: '700',
-  },
-  mobileList: {
-    gap: 12,
-  },
-  mobileCard: {
-    backgroundColor: '#fff',
-    borderRadius: 18,
-    padding: 16,
-    gap: 10,
-  },
-  mobileCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  mobileCardIssue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  mobileCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  mobileCardDescription: {
-    fontSize: 13,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  mobileCardMeta: {
-    fontSize: 12,
-    color: '#94a3b8',
-  },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 40,
-  },
-  emptyTitle: {
+  modalTitle: {
     fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
+    fontWeight: "bold",
+    color: "#1f2937",
+    textAlign: "center",
   },
-  emptyText: {
-    marginTop: 8,
-    fontSize: 14,
-    color: '#6b7280',
-    textAlign: 'center',
+  modalMessage: {
+    fontSize: 15,
+    color: "#4b5563",
+    textAlign: "center",
     lineHeight: 22,
   },
-  loadingContainer: {
+  modalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  modalCancelBtn: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f5f7fb',
+    paddingVertical: 10,
+    backgroundColor: "#f3f4f6",
+    borderRadius: 8,
+    alignItems: "center",
   },
-  loadingText: {
-    marginTop: 12,
-    color: '#4b5563',
+  modalConfirmBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    backgroundColor: "#ef4444",
+    borderRadius: 8,
+    alignItems: "center",
   },
-  configCard: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 18,
-    gap: 14,
+  modalCancelBtnText: {
+    fontSize: 16,
+    color: "#4b5563",
+    fontWeight: "600",
   },
-  configCardDesktop: {
-    paddingHorizontal: 22,
-  },
-  configHeader: {
-    gap: 6,
-  },
-  configTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  configSubtitle: {
-    fontSize: 13,
-    color: '#6b7280',
-    lineHeight: 20,
-  },
-  configFormGroup: {
-    gap: 8,
-  },
-  configLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#374151',
-  },
-  configInput: {
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#d1d5db',
-    backgroundColor: '#fff',
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: '#111827',
-  },
-  configTextarea: {
-    minHeight: 96,
-  },
-  configSaveButton: {
-    alignSelf: 'flex-start',
-    minHeight: 46,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    backgroundColor: '#2563eb',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  configSaveButtonText: {
-    color: '#fff',
-    fontWeight: '700',
+  modalConfirmBtnText: {
+    fontSize: 16,
+    color: "#fff",
+    fontWeight: "600",
   },
 });

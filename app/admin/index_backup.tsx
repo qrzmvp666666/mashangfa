@@ -1,0 +1,373 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import Toast from '../../components/Toast';
+import { getPlatformConfig, saveTiandiPageConfig } from '../../lib/platformConfigService';
+import {
+  AdminRecommendation,
+  ensureAdminAccess,
+  fetchAdminRecommendations,
+  subscribeToAdminRecommendations,
+  saveAdminRecommendation,
+  deleteAdminRecommendation,
+} from '../../lib/adminService';
+
+function formatDate(dateString: string) {
+  return dateString || '--';
+}
+
+export default function AdminHomeScreen() {
+  const router = useRouter();
+
+  const [items, setItems] = useState<AdminRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastType, setToastType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
+  const [pageTitle, setPageTitle] = useState('');
+  const [pageDescription, setPageDescription] = useState('');
+  const [savingPageConfig, setSavingPageConfig] = useState(false);
+  
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editIssueNo, setEditIssueNo] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [savingId, setSavingId] = useState<number | null>(null);
+
+  const visibleItems = items.filter(
+    (item) => item.is_visible && Boolean(item.recommendation_content?.trim())
+  );
+
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'warning' | 'info') => {
+    setToastMessage(message);
+    setToastType(type);
+    setToastVisible(true);
+  }, []);
+
+  const loadData = useCallback(async (showRefreshing = false) => {
+    if (showRefreshing) {
+      setRefreshing(true);
+    }
+
+    const accessResult = await ensureAdminAccess();
+    if (accessResult.error || !accessResult.data) {
+      router.replace('/admin/login');
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+
+    const listResult = await fetchAdminRecommendations();
+    if (listResult.error) {
+      showToast(listResult.error.message, 'error');
+    } else {
+      setItems(listResult.data || []);
+    }
+
+    const pageConfig = await getPlatformConfig();
+    setPageTitle(pageConfig.tiandiPageTitle);
+    setPageDescription(pageConfig.tiandiPageDescription);
+
+    setLoading(false);
+    setRefreshing(false);
+  }, [router, showToast]);
+
+  useEffect(() => {
+    loadData();
+
+    const unsubscribe = subscribeToAdminRecommendations(() => {
+      loadData();
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [loadData]);
+
+  const handleSavePageConfig = async () => {
+    setSavingPageConfig(true);
+    try {
+      const config = await saveTiandiPageConfig(pageTitle, pageDescription);
+      setPageTitle(config.tiandiPageTitle);
+      setPageDescription(config.tiandiPageDescription);
+      showToast('标题和描述已保存', 'success');
+    } catch (error: any) {
+      showToast(error?.message || '保存失败', 'error');
+    } finally {
+      setSavingPageConfig(false);
+    }
+  };
+
+  const handleEditClick = (item: AdminRecommendation) => {
+    setEditingId(item.id);
+    setEditIssueNo(item.issue_no.replace('期', ''));
+    setEditContent(item.recommendation_content || '');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+  };
+
+  const handleSaveEdit = async (item: AdminRecommendation) => {
+    setSavingId(item.id);
+    const { error } = await saveAdminRecommendation(
+      {
+        issue_no: editIssueNo,
+        issue_date: item.issue_date,
+        title: item.title || '',
+        description: item.description || '',
+        recommendation_content: editContent,
+        is_visible: item.is_visible,
+      },
+      item.id
+    );
+
+    if (error) {
+      showToast(error.message, 'error');
+    } else {
+      showToast('更新成功', 'success');
+      setEditingId(null);
+      loadData();
+    }
+    setSavingId(null);
+  };
+
+  const handleDeleteClick = (item: AdminRecommendation) => {
+    Alert.alert('确认删除', '确定要删除这一期内容吗？', [
+      { text: '取消' },
+      {
+        text: '确认删除',
+        style: 'destructive',
+        onPress: async () => {
+          const { error } = await deleteAdminRecommendation(item.id);
+          if (error) {
+            showToast(error.message, 'error');
+          } else {
+            showToast('删除成功', 'success');
+            loadData();
+          }
+        },
+      },
+    ]);
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2563eb" />
+        <Text style={styles.loadingText}>正加载后台数据...</Text>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.page}>
+      <ScrollView
+        contentContainerStyle={styles.pageContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} />}
+      >
+        <View style={styles.configCard}>
+          <View style={styles.configHeaderRow}>
+            <View style={styles.configHeader}>
+              <Text style={styles.configTitle}>全局页面文案</Text>
+            </View>
+            <TouchableOpacity style={styles.configSaveButton} onPress={handleSavePageConfig} disabled={savingPageConfig}>
+              {savingPageConfig ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.configSaveButtonText}>保存</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.configFormGroup}>
+            <Text style={styles.configLabel}>标题</Text>
+            <TextInput
+              style={styles.configInput}
+              value={pageTitle}
+              onChangeText={setPageTitle}
+              placeholder="请输入全局标题"
+              placeholderTextColor="#9ca3af"
+            />
+          </View>
+
+          <View style={styles.configFormGroup}>
+            <Text style={styles.configLabel}>描述</Text>
+            <TextInput
+              style={[styles.configInput, styles.configTextarea]}
+              value={pageDescription}
+              onChangeText={setPageDescription}
+              placeholder="支持多行，前台将逐行展示"
+              placeholderTextColor="#9ca3af"
+              multiline
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
+
+        <View style={styles.listCard}>
+          <View style={styles.tableSectionHeader}>
+            <View style={styles.tableSectionTextContainer}>
+              <Text style={styles.tableSectionTitle}>期次列表</Text>
+            </View>
+            <View style={styles.tableHeaderActions}>
+              <TouchableOpacity style={styles.tableAddButton} onPress={() => router.push('/admin/recommendations/new')}>
+                <Ionicons name="add-circle-outline" size={18} color="#fff" />
+                <Text style={styles.tableAddButtonText}>新增一期</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.tableCard}>
+            <View style={styles.tableHeaderRow}>
+              <Text style={[styles.tableHeaderText, styles.colIssue, { textAlign: 'center' }]}>期数</Text>
+              <Text style={[styles.tableHeaderText, styles.colContentLeft, { textAlign: 'left', paddingLeft: 8 }]}>推荐参考</Text>
+              <Text style={[styles.tableHeaderText, styles.colAction]}>操作</Text>
+            </View>
+
+          {visibleItems.map((item, index) => {
+            const isEditing = editingId === item.id;
+            const isSaving = savingId === item.id;
+            const rowBackgroundColor = index % 2 === 0 ? '#fafafa' : '#fff';
+
+            return (
+              <View key={item.id} style={[styles.tableRow, { backgroundColor: rowBackgroundColor }]}>
+                {isEditing ? (
+                  <>
+                    <View style={styles.colIssue}>
+                       <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                          <TextInput 
+                            style={styles.editInputLine} 
+                            value={editIssueNo} 
+                            onChangeText={setEditIssueNo} 
+                            placeholder="如: 073"
+                            keyboardType="numeric"
+                          />
+                          <Text style={{color: '#374151', fontSize: 13, marginLeft: 2}}>期</Text>
+                       </View>
+                    </View>
+                    <View style={styles.colContentLeft}>
+                      <TextInput 
+                        style={[styles.editInputLine, { width: '90%', textAlign: 'left' }]} 
+                        value={editContent} 
+                        onChangeText={setEditContent} 
+                        placeholder="推荐参考内容"
+                      />
+                    </View>
+                    <View style={styles.colAction}>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        <TouchableOpacity style={styles.btnSave} onPress={() => handleSaveEdit(item)} disabled={isSaving}>
+                          {isSaving ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.btnTextLight}>保存</Text>}
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.btnCancel} onPress={handleCancelEdit} disabled={isSaving}>
+                          <Text style={styles.btnTextDark}>取消</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.colIssue}>
+                      <Text style={styles.issueNumberText}>{item.issue_no.includes('期') ? item.issue_no : item.issue_no + '期'}</Text>
+                    </View>
+                    <View style={styles.colContentLeft}>
+                      <Text style={styles.referenceText}>
+                        {item.recommendation_content || '待开奖'}
+                      </Text>
+                    </View>
+                    <View style={[styles.colAction, { flexDirection: 'row', justifyContent: 'flex-end' }]}>
+                      <TouchableOpacity style={styles.btnEdit} onPress={() => handleEditClick(item)}>
+                        <Text style={styles.btnTextLight}>编辑</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.btnDelete} onPress={() => handleDeleteClick(item)}>
+                        <Text style={styles.btnTextLight}>删除</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                )}
+              </View>
+            );
+          })}
+
+          {visibleItems.length === 0 && (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>暂无展示内容</Text>
+            </View>
+          )}
+        </View>
+
+        </View>
+
+      </ScrollView>
+
+      <Toast
+        visible={toastVisible}
+        message={toastMessage}
+        type={toastType}
+        onHide={() => setToastVisible(false)}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  page: { flex: 1, backgroundColor: '#f2f5f9' },
+  pageContent: { padding: 16, gap: 16 },
+  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  loadingText: { marginTop: 12, color: '#666' },
+  
+  configCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
+  configHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
+  configHeader: { gap: 4, flex: 1 },
+  configTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
+  configSubtitle: { fontSize: 13, color: '#6b7280' },
+  configFormGroup: { gap: 6 },
+  configLabel: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  configInput: { borderWidth: 1, borderColor: '#d1d5db', borderRadius: 8, padding: 10, fontSize: 14, backgroundColor: '#f9fafb' },
+  configTextarea: { minHeight: 80 },
+  configSaveButton: { backgroundColor: '#3b82f6', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8 },
+  configSaveButtonText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+
+  listCard: { backgroundColor: '#fff', borderRadius: 16, padding: 16, gap: 12 },
+
+  tableSectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: 12 },
+  tableSectionTextContainer: { flex: 1 },
+  tableSectionTitle: { fontSize: 18, fontWeight: '700', color: '#1f2937' },
+  tableSectionSubtitle: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  tableHeaderActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  
+  tableAddButton: { backgroundColor: '#3b82f6', flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
+  tableAddButtonText: { color: '#fff', fontSize: 13, fontWeight: '600' },
+
+  tableCard: { backgroundColor: '#fff', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#e5e7eb' },
+  tableHeaderRow: { flexDirection: 'row', backgroundColor: '#f3f4f6', paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#e5e7eb' },
+  tableHeaderText: { fontSize: 14, fontWeight: '700', color: '#374151' },
+  tableRow: { flexDirection: 'row', paddingVertical: 14, paddingHorizontal: 16, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  
+  colIssue: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  colContentLeft: { flex: 3, alignItems: 'flex-start', justifyContent: 'center', paddingHorizontal: 8 },
+  colAction: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', flexDirection: 'row' },
+  
+  issueNumberText: { fontSize: 14, color: '#1f2937', textAlign: 'center' },
+  referenceText: { fontSize: 14, color: '#1f2937', fontWeight: '500', textAlign: 'left' },
+  
+  btnEdit: { backgroundColor: '#f59e0b', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4 },
+  btnDelete: { backgroundColor: '#ef4444', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4, marginLeft: 8 },
+  btnSave: { backgroundColor: '#10b981', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4 },
+  btnCancel: { backgroundColor: '#e5e7eb', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 4 },
+  btnTextLight: { color: '#fff', fontSize: 13, fontWeight: '600' },
+  btnTextDark: { color: '#374151', fontSize: 13, fontWeight: '600' },
+  
+  editInputLine: { borderBottomWidth: 1, borderBottomColor: '#cbd5e1', paddingVertical: 4, fontSize: 14, color: '#1f2937', minWidth: 40, textAlign: 'center' },
+  
+  emptyState: { padding: 32, alignItems: 'center' },
+  emptyTitle: { fontSize: 14, color: '#9ca3af' },
+});
