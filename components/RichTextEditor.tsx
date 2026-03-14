@@ -7,7 +7,7 @@ if (Platform.OS === 'web') {
   require('react-quill-new/dist/quill.snow.css');
 }
 
-export default function RichTextEditor({ value, onChange, placeholder }: any) {
+export default function RichTextEditor({ value, onChange, placeholder, minHeight = 40 }: any) {
   const modules = useMemo(() => ({
     toolbar: [
       ['bold', 'italic'],
@@ -41,10 +41,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
           }
           .ql-container {
             font-size: 14px;
-            min-height: 40px;
+            min-height: ${minHeight}px;
           }
           .ql-editor {
-            min-height: 40px;
+            min-height: ${minHeight}px;
             padding: 8px 12px;
           }
           .ql-toolbar.ql-snow {
@@ -63,9 +63,9 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
             border-color: #d1d5db;
           }
           .ql-editor {
-            min-height: 40px;
+            min-height: ${minHeight}px;
             padding: 8px 12px;
-            max-height: 300px;
+            max-height: 400px;
           }
         `}</style>
       </View>
@@ -74,7 +74,7 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
 
   return (
     <TextInput
-      style={styles.nativeEditor}
+      style={[styles.nativeEditor, { minHeight }]}
       value={value || ''}
       onChangeText={onChange}
       placeholder={placeholder || '此环境暂不支持富文本...'}
@@ -87,12 +87,10 @@ export default function RichTextEditor({ value, onChange, placeholder }: any) {
 const styles = StyleSheet.create({
   webContainer: {
     backgroundColor: '#fff',
-    minHeight: 40,
     marginBottom: 0,
     width: '100%',
   },
   nativeEditor: {
-    minHeight: 40,
     borderWidth: 1,
     borderColor: '#d1d5db',
     borderRadius: 8,

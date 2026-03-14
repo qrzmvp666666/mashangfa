@@ -463,6 +463,7 @@ export default function AdminHomeScreen() {
                   value={formContent}
                   onChange={setFormContent}
                   placeholder="请输入推荐参考内容（可编辑颜色、底色和排版）"
+                  minHeight={150}
                 />
               </View>
             </View>
