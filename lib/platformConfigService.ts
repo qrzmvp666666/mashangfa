@@ -68,22 +68,10 @@ export function clearConfigCache() {
 }
 
 export async function saveTiandiPageConfig(title: string, description: string) {
-  const rows = [
-    {
-      key: 'tiandi_page_title',
-      value: title.trim() || DEFAULTS.tiandiPageTitle,
-      description: '推荐页全局标题',
-    },
-    {
-      key: 'tiandi_page_description',
-      value: description.trim() || DEFAULTS.tiandiPageDescription,
-      description: '推荐页全局描述',
-    },
-  ];
-
-  const { error } = await supabase
-    .from('platform_config')
-    .upsert(rows, { onConflict: 'key' });
+  const { error } = await supabase.rpc("save_tiandi_page_config", {
+    p_title: title.trim() || DEFAULTS.tiandiPageTitle,
+    p_description: description.trim() || DEFAULTS.tiandiPageDescription,
+  });
 
   if (error) {
     throw error;
