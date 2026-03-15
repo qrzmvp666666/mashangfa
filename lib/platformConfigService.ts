@@ -80,3 +80,24 @@ export async function saveTiandiPageConfig(title: string, description: string) {
   clearConfigCache();
   return getPlatformConfig();
 }
+
+/**
+ * 订阅 platform_config 表变更，变更时清缓存并调用回调
+ */
+export function subscribeToPlatformConfig(onUpdate: () => void) {
+  const channel = supabase
+    .channel('public:platform_config')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'platform_config' },
+      () => {
+        clearConfigCache();
+        onUpdate();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}

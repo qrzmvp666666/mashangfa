@@ -9,7 +9,7 @@ import { Asset } from 'expo-asset';
 import * as MediaLibrary from 'expo-media-library';
 import * as Clipboard from 'expo-clipboard';
 import { fetchTiandiSpecials, subscribeToTiandiSpecials, TiandiSpecial, BallData, fetchLatestLotteryResult, subscribeToLotteryResults, LotteryResult } from '../../lib/tiandiService';
-import { getPlatformConfig } from '../../lib/platformConfigService';
+import { getPlatformConfig, subscribeToPlatformConfig, clearConfigCache } from '../../lib/platformConfigService';
 import { useAddToHomeScreen } from '../../contexts/AddToHomeScreenContext';
 import { supabase } from '../../lib/supabase';
 import Toast from '../../components/Toast';
@@ -637,16 +637,22 @@ export default function LotteryPage() {
     };
   }, [session, user]);
 
-  // 启动时从数据库加载时间配置
+  // 启动时从数据库加载时间配置，并订阅 platform_config 实时变更
   useEffect(() => {
-    getPlatformConfig().then(cfg => {
-      setDrawHour(cfg.drawHour);
-      setDrawMinute(cfg.drawMinute);
-      setPredictionHour(cfg.predictionHour);
-      setPredictionMinute(cfg.predictionMinute);
-      setPageTitle(cfg.tiandiPageTitle);
-      setPageDescription(cfg.tiandiPageDescription);
-    });
+    const loadConfig = () => {
+      clearConfigCache();
+      getPlatformConfig().then(cfg => {
+        setDrawHour(cfg.drawHour);
+        setDrawMinute(cfg.drawMinute);
+        setPredictionHour(cfg.predictionHour);
+        setPredictionMinute(cfg.predictionMinute);
+        setPageTitle(cfg.tiandiPageTitle);
+        setPageDescription(cfg.tiandiPageDescription);
+      });
+    };
+    loadConfig();
+    const unsubscribeConfig = subscribeToPlatformConfig(loadConfig);
+    return () => unsubscribeConfig();
   }, []);
 
   // 计算两个倒计时：开奖时间和预测发布时间
