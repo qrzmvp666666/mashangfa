@@ -249,11 +249,15 @@ const ANNOUNCEMENTS = [
   '📱 下载APP享受更好体验',
 ];
 
-const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules }) => {
+const AnnouncementBanner: React.FC<{ onShowRules: () => void; announcements: string[] }> = ({ onShowRules, announcements }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
+    if (!announcements.length) {
+      return;
+    }
+
     const interval = setInterval(() => {
       // 淡出
       Animated.timing(fadeAnim, {
@@ -262,7 +266,7 @@ const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules
         useNativeDriver: true,
       }).start(() => {
         // 切换文字
-        setCurrentIndex((prev) => (prev + 1) % ANNOUNCEMENTS.length);
+        setCurrentIndex((prev) => (prev + 1) % announcements.length);
         // 淡入
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -273,7 +277,7 @@ const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules
     }, 3000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [announcements, fadeAnim]);
 
   return (
     <View style={styles.announcementContainer}>
@@ -282,7 +286,7 @@ const AnnouncementBanner: React.FC<{ onShowRules: () => void }> = ({ onShowRules
       </View>
       <View style={styles.announcementContent}>
         <Animated.Text style={[styles.announcementText, { opacity: fadeAnim }]}>
-          {ANNOUNCEMENTS[currentIndex]}
+          {announcements[currentIndex] || ''}
         </Animated.Text>
       </View>
       <TouchableOpacity onPress={onShowRules} style={styles.rulesButton}>
@@ -528,6 +532,20 @@ const getBeijingTimeParts = () => {
   };
 };
 
+const formatHourMinute = (hour: number, minute: number) => {
+  return `${hour}点${minute > 0 ? `${minute}分` : ''}`;
+};
+
+const getBeijingDateLabel = () => {
+  const timeParts = getBeijingTimeParts();
+  const weekDay = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    weekday: 'short',
+  }).format(new Date());
+
+  return `${String(timeParts.month).padStart(2, '0')}月${String(timeParts.day).padStart(2, '0')}日(${weekDay})`;
+};
+
 export default function LotteryPage() {
   const { showPrompt } = useAddToHomeScreen();
   const [activeTab, setActiveTab] = useState<LotteryType>('macau');
@@ -575,6 +593,13 @@ export default function LotteryPage() {
   const beijingCurrentMinuteOfDay = beijingNow.hour * 60 + beijingNow.minute;
   const drawCutoffMinuteOfDay = DRAW_HOUR * 60 + DRAW_MINUTE;
   const shouldShowNextIssue = beijingCurrentMinuteOfDay >= drawCutoffMinuteOfDay;
+  const beijingDrawDateLabel = getBeijingDateLabel();
+  const announcements = [
+    '🎉 有奖竞猜活动火热进行中！',
+    `🔔 每日${formatHourMinute(PREDICTION_HOUR, PREDICTION_MINUTE)}公布预测，${formatHourMinute(DRAW_HOUR, DRAW_MINUTE)}开奖`,
+    '🔥 登录即可查看最新一期预测内容',
+    '📱 下载APP享受更好体验',
+  ];
 
   const currentIssue = useMemo(() => {
     if (!shouldShowNextIssue) {
@@ -730,29 +755,27 @@ export default function LotteryPage() {
   // 计算两个倒计时：开奖时间和预测发布时间
   useEffect(() => {
     const calculateCountdowns = () => {
-      const now = new Date();
-      
-      // 1. 计算距离开奖时间（21:30）的倒计时
-      const drawTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), DRAW_HOUR, DRAW_MINUTE, 0);
-      if (now > drawTarget) {
-        drawTarget.setDate(drawTarget.getDate() + 1);
+      const nowParts = getBeijingTimeParts();
+      const currentSecondsOfDay = nowParts.hour * 3600 + nowParts.minute * 60 + nowParts.second;
+
+      const drawTargetSeconds = DRAW_HOUR * 3600 + DRAW_MINUTE * 60;
+      let drawDiffSeconds = drawTargetSeconds - currentSecondsOfDay;
+      if (drawDiffSeconds <= 0) {
+        drawDiffSeconds += 24 * 3600;
       }
-      const drawDiff = drawTarget.getTime() - now.getTime();
-      const drawHours = Math.floor(drawDiff / (1000 * 60 * 60));
-      const drawMinutes = Math.floor((drawDiff % (1000 * 60 * 60)) / (1000 * 60));
-      const drawSeconds = Math.floor((drawDiff % (1000 * 60)) / 1000);
+      const drawHours = Math.floor(drawDiffSeconds / 3600);
+      const drawMinutes = Math.floor((drawDiffSeconds % 3600) / 60);
+      const drawSeconds = drawDiffSeconds % 60;
       setDrawCountdown(`${drawHours.toString().padStart(2, '0')}:${drawMinutes.toString().padStart(2, '0')}:${drawSeconds.toString().padStart(2, '0')}`);
-      
-      // 2. 计算距离预测发布时间（15:00）的倒计时
-      const predictionTarget = new Date(now.getFullYear(), now.getMonth(), now.getDate(), PREDICTION_HOUR, PREDICTION_MINUTE, 0);
-      
-      if (now > predictionTarget) {
-        predictionTarget.setDate(predictionTarget.getDate() + 1);
+
+      const predictionTargetSeconds = PREDICTION_HOUR * 3600 + PREDICTION_MINUTE * 60;
+      let predictionDiffSeconds = predictionTargetSeconds - currentSecondsOfDay;
+      if (predictionDiffSeconds <= 0) {
+        predictionDiffSeconds += 24 * 3600;
       }
-      const predictionDiff = predictionTarget.getTime() - now.getTime();
-      const predictionHours = Math.floor(predictionDiff / (1000 * 60 * 60));
-      const predictionMinutes = Math.floor((predictionDiff % (1000 * 60 * 60)) / (1000 * 60));
-      const predictionSeconds = Math.floor((predictionDiff % (1000 * 60)) / 1000);
+      const predictionHours = Math.floor(predictionDiffSeconds / 3600);
+      const predictionMinutes = Math.floor((predictionDiffSeconds % 3600) / 60);
+      const predictionSeconds = predictionDiffSeconds % 60;
       setPredictionCountdown(`${predictionHours.toString().padStart(2, '0')}:${predictionMinutes.toString().padStart(2, '0')}:${predictionSeconds.toString().padStart(2, '0')}`);
     };
 
@@ -828,7 +851,7 @@ export default function LotteryPage() {
       </LinearGradient>
 
       {/* 公告横幅 */}
-      <AnnouncementBanner onShowRules={() => setRulesVisible(true)} />
+      <AnnouncementBanner onShowRules={() => setRulesVisible(true)} announcements={announcements} />
 
 
 
@@ -1053,14 +1076,7 @@ export default function LotteryPage() {
               <Text style={styles.clockText}>🕐</Text>
             </View>
             <Text style={styles.nextDrawText}>
-              本期开奖: {(() => {
-                const now = new Date();
-                const month = String(now.getMonth() + 1).padStart(2, '0');
-                const day = String(now.getDate()).padStart(2, '0');
-                const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-                const weekDay = weekDays[now.getDay()];
-                return `${month}月${day}日(${weekDay})`;
-              })()}
+              本期开奖: {beijingDrawDateLabel}
             </Text>
           </View>
 
