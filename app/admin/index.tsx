@@ -22,7 +22,9 @@ import RichTextEditor from "../../components/RichTextEditor";
 import RenderHtml from "react-native-render-html";
 import {
   getPlatformConfig,
+  savePlatformTimeConfig,
   saveTiandiPageConfig,
+  subscribeToPlatformConfig,
 } from "../../lib/platformConfigService";
 import {
   AdminRecommendation,
@@ -81,6 +83,10 @@ export default function AdminHomeScreen() {
   >("info");
   const [pageTitle, setPageTitle] = useState("");
   const [pageDescription, setPageDescription] = useState("");
+  const [drawHourInput, setDrawHourInput] = useState("");
+  const [drawMinuteInput, setDrawMinuteInput] = useState("");
+  const [predictionHourInput, setPredictionHourInput] = useState("");
+  const [predictionMinuteInput, setPredictionMinuteInput] = useState("");
   const [savingPageConfig, setSavingPageConfig] = useState(false);
 
   const [isFormModalVisible, setIsFormModalVisible] = useState(false);
@@ -138,6 +144,10 @@ export default function AdminHomeScreen() {
       const pageConfig = await getPlatformConfig();
       setPageTitle(pageConfig.tiandiPageTitle);
       setPageDescription(pageConfig.tiandiPageDescription);
+      setDrawHourInput(String(pageConfig.drawHour));
+      setDrawMinuteInput(String(pageConfig.drawMinute));
+      setPredictionHourInput(String(pageConfig.predictionHour));
+      setPredictionMinuteInput(String(pageConfig.predictionMinute));
 
       setLoading(false);
       setRefreshing(false);
@@ -152,18 +162,56 @@ export default function AdminHomeScreen() {
       loadData();
     });
 
+    const unsubscribePlatformConfig = subscribeToPlatformConfig(() => {
+      loadData();
+    });
+
     return () => {
       unsubscribe();
+      unsubscribePlatformConfig();
     };
   }, [loadData]);
 
+  const parseTimeNumber = (
+    value: string,
+    min: number,
+    max: number,
+    label: string,
+  ) => {
+    const parsed = Number.parseInt(value.trim(), 10);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      showToast(`${label}需在 ${min}-${max} 之间`, "warning");
+      return null;
+    }
+    return parsed;
+  };
+
   const handleSavePageConfig = async () => {
+    const drawHour = parseTimeNumber(drawHourInput, 0, 23, "开奖小时");
+    if (drawHour === null) return;
+    const drawMinute = parseTimeNumber(drawMinuteInput, 0, 59, "开奖分钟");
+    if (drawMinute === null) return;
+    const predictionHour = parseTimeNumber(predictionHourInput, 0, 23, "预测小时");
+    if (predictionHour === null) return;
+    const predictionMinute = parseTimeNumber(predictionMinuteInput, 0, 59, "预测分钟");
+    if (predictionMinute === null) return;
+
     setSavingPageConfig(true);
     try {
+      await savePlatformTimeConfig({
+        drawHour,
+        drawMinute,
+        predictionHour,
+        predictionMinute,
+      });
       const config = await saveTiandiPageConfig(pageTitle, pageDescription);
       setPageTitle(config.tiandiPageTitle);
       setPageDescription(config.tiandiPageDescription);
-      showToast("标题和描述已保存", "success");
+      setDrawHourInput(String(config.drawHour));
+      setDrawMinuteInput(String(config.drawMinute));
+      setPredictionHourInput(String(config.predictionHour));
+      setPredictionMinuteInput(String(config.predictionMinute));
+      showToast("全局配置已保存", "success");
     } catch (error: any) {
       showToast(error?.message || "保存失败", "error");
     } finally {
@@ -334,6 +382,62 @@ export default function AdminHomeScreen() {
                 <Text style={styles.configSaveButtonText}>保存</Text>
               )}
             </TouchableOpacity>
+          </View>
+
+          <View style={styles.configFormGroup}>
+            <Text style={styles.configLabel}>开奖时间（北京时间）</Text>
+            <View style={styles.timeRow}>
+              <View style={styles.timeItem}>
+                <Text style={styles.timeItemLabel}>小时</Text>
+                <TextInput
+                  style={styles.configInput}
+                  value={drawHourInput}
+                  onChangeText={setDrawHourInput}
+                  keyboardType="number-pad"
+                  placeholder="0-23"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              <View style={styles.timeItem}>
+                <Text style={styles.timeItemLabel}>分钟</Text>
+                <TextInput
+                  style={styles.configInput}
+                  value={drawMinuteInput}
+                  onChangeText={setDrawMinuteInput}
+                  keyboardType="number-pad"
+                  placeholder="0-59"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.configFormGroup}>
+            <Text style={styles.configLabel}>预测发布时间（北京时间）</Text>
+            <View style={styles.timeRow}>
+              <View style={styles.timeItem}>
+                <Text style={styles.timeItemLabel}>小时</Text>
+                <TextInput
+                  style={styles.configInput}
+                  value={predictionHourInput}
+                  onChangeText={setPredictionHourInput}
+                  keyboardType="number-pad"
+                  placeholder="0-23"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+              <View style={styles.timeItem}>
+                <Text style={styles.timeItemLabel}>分钟</Text>
+                <TextInput
+                  style={styles.configInput}
+                  value={predictionMinuteInput}
+                  onChangeText={setPredictionMinuteInput}
+                  keyboardType="number-pad"
+                  placeholder="0-59"
+                  placeholderTextColor="#9ca3af"
+                />
+              </View>
+            </View>
           </View>
 
           <View style={styles.configFormGroup}>
@@ -639,6 +743,19 @@ const styles = StyleSheet.create({
   configSubtitle: { fontSize: 13, color: "#6b7280" },
   configFormGroup: { gap: 6 },
   configLabel: { fontSize: 14, fontWeight: "600", color: "#374151" },
+  timeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  timeItem: {
+    flex: 1,
+    gap: 6,
+  },
+  timeItemLabel: {
+    fontSize: 12,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
   configInput: {
     borderWidth: 1,
     borderColor: "#d1d5db",

@@ -81,6 +81,56 @@ export async function saveTiandiPageConfig(title: string, description: string) {
   return getPlatformConfig();
 }
 
+export async function savePlatformTimeConfig(input: {
+  drawHour: number;
+  drawMinute: number;
+  predictionHour: number;
+  predictionMinute: number;
+}) {
+  const drawHour = Math.max(0, Math.min(23, Math.floor(input.drawHour)));
+  const drawMinute = Math.max(0, Math.min(59, Math.floor(input.drawMinute)));
+  const predictionHour = Math.max(0, Math.min(23, Math.floor(input.predictionHour)));
+  const predictionMinute = Math.max(0, Math.min(59, Math.floor(input.predictionMinute)));
+
+  const nowIso = new Date().toISOString();
+  const { error } = await supabase.from('platform_config').upsert(
+    [
+      {
+        key: 'draw_hour',
+        value: String(drawHour),
+        description: '开奖时间-小时（北京时间，24小时制）',
+        updated_at: nowIso,
+      },
+      {
+        key: 'draw_minute',
+        value: String(drawMinute),
+        description: '开奖时间-分钟',
+        updated_at: nowIso,
+      },
+      {
+        key: 'prediction_hour',
+        value: String(predictionHour),
+        description: '预测发布时间-小时（北京时间，24小时制）',
+        updated_at: nowIso,
+      },
+      {
+        key: 'prediction_minute',
+        value: String(predictionMinute),
+        description: '预测发布时间-分钟',
+        updated_at: nowIso,
+      },
+    ],
+    { onConflict: 'key' }
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  clearConfigCache();
+  return getPlatformConfig();
+}
+
 /**
  * 订阅 platform_config 表变更，变更时清缓存并调用回调
  */
