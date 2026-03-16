@@ -585,9 +585,45 @@ export default function AdminHomeScreen() {
 
       
       <Modal visible={isFormModalVisible} transparent={true} animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { width: "90%", maxWidth: 700 }]}>
-            <Text style={styles.modalTitle}>{formMode === "create" ? "新增一期推荐" : "编辑推荐"}</Text>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={closeFormModal}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            onPress={() => {}}
+            style={[styles.modalContent, styles.formModalContent]}
+          >
+            <View style={styles.formModalHeaderRow}>
+              <Text style={styles.modalTitle}>{formMode === "create" ? "新增一期推荐" : "编辑推荐"}</Text>
+              <View style={styles.formModalHeaderActions}>
+                <TouchableOpacity
+                  style={styles.formModalCloseBtn}
+                  onPress={closeFormModal}
+                  disabled={isSavingForm}
+                >
+                  <Ionicons name="close" size={16} color="#374151" />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.formModalSaveBtn}
+                  onPress={handleSaveForm}
+                  disabled={isSavingForm}
+                >
+                  {isSavingForm ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.formModalSaveBtnText}>保存</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <ScrollView
+              style={styles.formModalBody}
+              contentContainerStyle={{ paddingBottom: 4 }}
+              showsVerticalScrollIndicator={false}
+            >
             
             <View style={{ marginBottom: 16 }}>
               <Text style={styles.configLabel}>期数</Text>
@@ -664,29 +700,9 @@ export default function AdminHomeScreen() {
                 </TouchableOpacity>
               </View>
             </View>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={closeFormModal}
-                disabled={isSavingForm}
-              >
-                <Text style={styles.modalCancelBtnText}>取消</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                onPress={handleSaveForm}
-                disabled={isSavingForm}
-              >
-                {isSavingForm ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.modalConfirmBtnText}>确定保存</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+            </ScrollView>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
       <Modal visible={isDeleteModalVisible} transparent={true} animationType="fade">
         <View style={styles.modalOverlay}>
@@ -953,6 +969,49 @@ const styles = StyleSheet.create({
     maxWidth: 320,
     gap: 16,
   },
+  formModalContent: {
+    width: "86%",
+    maxWidth: 560,
+    maxHeight: "82%",
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+  },
+  formModalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  formModalHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  formModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  formModalSaveBtn: {
+    backgroundColor: "#3b82f6",
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    minWidth: 62,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  formModalSaveBtnText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  formModalBody: {
+    flexGrow: 0,
+  },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
@@ -970,6 +1029,10 @@ const styles = StyleSheet.create({
     gap: 12,
     justifyContent: "space-between",
     marginTop: 8,
+  },
+  formModalTopActions: {
+    marginTop: 0,
+    marginBottom: 8,
   },
   modalCancelBtn: {
     flex: 1,
