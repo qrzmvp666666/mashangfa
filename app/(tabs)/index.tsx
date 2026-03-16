@@ -486,6 +486,48 @@ const renderPredictionResult = (item: TiandiSpecial) => {
   );
 };
 
+const getNextIssueNo = (issueNo: string) => {
+  const match = issueNo.match(/(\d+)/);
+  if (!match) return issueNo;
+
+  const currentNumStr = match[1];
+  const nextNum = parseInt(currentNumStr, 10) + 1;
+  const nextNumStr = String(nextNum).padStart(currentNumStr.length, '0');
+
+  return issueNo.replace(currentNumStr, nextNumStr);
+};
+
+const getBeijingTimeParts = () => {
+  const formatter = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+
+  const partMap = formatter
+    .formatToParts(new Date())
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== 'literal') {
+        acc[part.type] = part.value;
+      }
+      return acc;
+    }, {});
+
+  return {
+    year: parseInt(partMap.year || '0', 10),
+    month: parseInt(partMap.month || '0', 10),
+    day: parseInt(partMap.day || '0', 10),
+    hour: parseInt(partMap.hour || '0', 10),
+    minute: parseInt(partMap.minute || '0', 10),
+    second: parseInt(partMap.second || '0', 10),
+  };
+};
+
 export default function LotteryPage() {
   const { showPrompt } = useAddToHomeScreen();
   const [activeTab, setActiveTab] = useState<LotteryType>('macau');
@@ -527,10 +569,40 @@ export default function LotteryPage() {
   };
 
   const currentSettings = LOTTERY_DATA[activeTab];
-  // 当前期：draw_date === 今天（is_current=true 由后端计算）
-  const currentIssue = tiandiData.find(item => item.is_current) || null;
-  // 历史数据：其余期数
-  const historyItems = tiandiData.filter(item => !item.is_current);
+
+  const dbCurrentIssue = tiandiData.find(item => item.is_current) || null;
+  const beijingNow = getBeijingTimeParts();
+  const beijingCurrentMinuteOfDay = beijingNow.hour * 60 + beijingNow.minute;
+  const drawCutoffMinuteOfDay = DRAW_HOUR * 60 + DRAW_MINUTE;
+  const shouldShowNextIssue = beijingCurrentMinuteOfDay >= drawCutoffMinuteOfDay;
+
+  const currentIssue = useMemo(() => {
+    if (!shouldShowNextIssue) {
+      return dbCurrentIssue;
+    }
+
+    const baseIssue = dbCurrentIssue || tiandiData[0] || null;
+    if (!baseIssue) {
+      return null;
+    }
+
+    return {
+      ...baseIssue,
+      id: -1,
+      issue_no: getNextIssueNo(baseIssue.issue_no),
+      prediction_content: null,
+      is_correct: null,
+      is_current: true,
+      special_animal: null,
+      special_num: null,
+      special_color: null,
+    };
+  }, [shouldShowNextIssue, dbCurrentIssue, tiandiData]);
+
+  const historyItems = useMemo(
+    () => (shouldShowNextIssue ? tiandiData : tiandiData.filter(item => !item.is_current)),
+    [shouldShowNextIssue, tiandiData]
+  );
 
   // 从开奖结果中取最新一条
   const latestResultPeriod = lotteryResult ? lotteryResult.issue_no : null;
